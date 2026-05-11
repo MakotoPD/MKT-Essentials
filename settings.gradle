@@ -1,0 +1,15 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+includeBuild('../TextPlaceholderAPI-NeoForge-26.1') {
+    dependencySubstitution {
+        substitute module('eu.pb4:placeholder_api') using project(':')
+    }
+}
