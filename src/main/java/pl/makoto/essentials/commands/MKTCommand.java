@@ -28,18 +28,65 @@ public class MKTCommand {
     }
 
     private static int help(CommandSourceStack source) {
-        source.sendSuccess(() -> MessageUtils.format("&8&m       &r &6&lMKT Essentials &8&m       "), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/home, /sethome, /delhome, /listhomes &7- Home system"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/warp, /setwarp, /delwarp, /listwarps &7- Warp system"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/tpa, /tpahere, /tpaccept, /tpdeny &7- Teleport requests"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/spawn, /back, /rtp, /top &7- General teleportation"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/msg, /reply, /socialspy, /broadcast &7- Messaging"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/heal, /feed, /fly, /god, /vanish, /speed &7- Admin tools"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/mute, /unmute, /clearinv &7- Moderation"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/nick, /hat, /ping, /kickme &7- Misc"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/recording, /streaming &7- Status"), false);
-        source.sendSuccess(() -> MessageUtils.format("&e/day, /night, /sun, /rain &7- Time & Weather"), false);
-        source.sendSuccess(() -> MessageUtils.format("&8&m                             "), false);
+        boolean isAdmin = Permissions.hasPermission(source, "mktessentials.admin.heal", 2);
+        boolean isMod = Permissions.hasPermission(source, "mktessentials.moderation.kick", 2);
+
+        source.sendSuccess(() -> MessageUtils.format(""), false);
+        source.sendSuccess(() -> MessageUtils.format("&8&m━━━━━━━━━━━━&r &6&lMKT Essentials &8&m━━━━━━━━━━━━"), false);
+        source.sendSuccess(() -> MessageUtils.format(""), false);
+
+        // Teleportation — always visible
+        source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Teleportation"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/home, /sethome, /delhome, /homes"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/warp, /setwarp, /delwarp, /warps"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/spawn, /back, /rtp, /top"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/tpa, /tpahere, /tpaccept, /tpdeny"), false);
+        source.sendSuccess(() -> MessageUtils.format(""), false);
+
+        // Communication — always visible
+        source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Communication"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/msg <player> <message>, /reply <message>"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/nick <nickname>, /recording, /streaming"), false);
+        source.sendSuccess(() -> MessageUtils.format(""), false);
+
+        // Utility — always visible
+        source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Utility"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/kit <name>, /hat, /ping"), false);
+        if (isAdmin) {
+            source.sendSuccess(() -> MessageUtils.format("   &7/repair, /enchant <enchantment> <level>"), false);
+        }
+        source.sendSuccess(() -> MessageUtils.format(""), false);
+
+        // Admin — only for admins
+        if (isAdmin) {
+            source.sendSuccess(() -> MessageUtils.format(" &c⬡ &4Admin"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/heal, /feed, /fly, /god, /vanish"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/speed fly|walk <0-10>, /clearinv"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/tpall, /invsee <player>, /enderchest <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/invbackup save|list|restore|delete"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/day, /night, /sun, /rain"), false);
+            source.sendSuccess(() -> MessageUtils.format(""), false);
+        }
+
+        // Moderation — only for mods+
+        if (isMod) {
+            source.sendSuccess(() -> MessageUtils.format(" &c⬡ &4Moderation"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/kick <player> [reason]"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/ban <player> [reason], /tempban <player> <duration> [reason]"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/unban <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/mute <player> [duration], /unmute <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format(""), false);
+        }
+
+        // Management — only for admins
+        if (isAdmin) {
+            source.sendSuccess(() -> MessageUtils.format(" &c⬡ &4Management"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/mkt reload &8- &7Reload configuration"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/mkt permissions &8- &7List all permission nodes"), false);
+            source.sendSuccess(() -> MessageUtils.format(""), false);
+        }
+
+        source.sendSuccess(() -> MessageUtils.format("&8&m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"), false);
         return 1;
     }
 
