@@ -208,52 +208,6 @@ chat:
     vip: "&6[VIP] &f%mktessentials:name%&8: &f{message}"
 ```
 
-## 🔑 Permissions
-
-| Node | Description | Default |
-|------|-------------|---------|
-| `mktessentials.command.home` | Home commands | All |
-| `mktessentials.command.warp` | Warp commands | All |
-| `mktessentials.command.spawn` | /spawn | All |
-| `mktessentials.command.back` | /back | All |
-| `mktessentials.command.rtp` | /rtp | All |
-| `mktessentials.command.tpa` | TPA commands | All |
-| `mktessentials.command.nick` | /nick | All |
-| `mktessentials.command.hat` | /hat | All |
-| `mktessentials.command.ping` | /ping | All |
-| `mktessentials.command.near` | /near | All |
-| `mktessentials.command.seen` | /seen | All |
-| `mktessentials.admin.heal` | /heal | OP 2 |
-| `mktessentials.admin.feed` | /feed | OP 2 |
-| `mktessentials.admin.fly` | /fly | OP 2 |
-| `mktessentials.admin.god` | /god | OP 2 |
-| `mktessentials.admin.vanish` | /vanish | OP 2 |
-| `mktessentials.admin.speed` | /speed | OP 2 |
-| `mktessentials.admin.clearinv` | /clearinv | OP 2 |
-| `mktessentials.admin.tpall` | /tpall | OP 2 |
-| `mktessentials.admin.invsee` | /invsee | OP 2 |
-| `mktessentials.admin.enderchest` | /enderchest | OP 2 |
-| `mktessentials.admin.backup` | /invbackup | OP 2 |
-| `mktessentials.admin.clearitems` | /clearitems | OP 2 |
-| `mktessentials.admin.gamemode` | /gm, /gmc, /gms, /gma, /gmsp | OP 2 |
-| `mktessentials.admin.tp` | /tp, /tphere, /tppos | OP 2 |
-| `mktessentials.admin.give` | /i, /item | OP 2 |
-| `mktessentials.admin.more` | /more | OP 2 |
-| `mktessentials.admin.skull` | /skull | OP 2 |
-| `mktessentials.admin.sudo` | /sudo | OP 3 |
-| `mktessentials.admin.reload` | /mkt reload | OP 3 |
-| `mktessentials.utility.repair` | /repair | OP 2 |
-| `mktessentials.utility.enchant` | /enchant | OP 2 |
-| `mktessentials.moderation.kick` | /kick | OP 2 |
-| `mktessentials.moderation.ban` | /ban | OP 3 |
-| `mktessentials.moderation.tempban` | /tempban | OP 3 |
-| `mktessentials.moderation.unban` | /unban | OP 3 |
-| `mktessentials.moderation.shadowban` | /shadowban | OP 3 |
-| `mktessentials.admin.mute` | /mute | OP 2 |
-| `mktessentials.auth.admin.reset` | /auth reset | OP 3 |
-| `mktessentials.auth.admin.unlink` | /auth unlink | OP 3 |
-| `mktessentials.auth.admin.info` | /auth info | OP 3 |
-
 ## 🛠️ Requirements
 
 - **NeoForge** 1.21.1 (v21.1.228+)
