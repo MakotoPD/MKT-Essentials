@@ -131,27 +131,38 @@ dependencies {
     jarJar(group: 'org.yaml', name: 'snakeyaml', version: '[2.0,3.0)') {
         version { prefer '2.2' }
     }
-    // Example optional mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // compileOnly "mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}"
-    // We add the full version to localRuntime, not runtimeOnly, so that we do not publish a dependency on it
-    // localRuntime "mezz.jei:jei-${mc_version}-neoforge:${jei_version}"
 
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
+    // JDA 5.x - Discord bot library
+    implementation('net.dv8tion:JDA:5.2.1') {
+        exclude module: 'opus-java'
+        exclude group: 'org.slf4j'
+    }
+    jarJar(group: 'net.dv8tion', name: 'JDA', version: '[5.2.0,6.0)') {
+        version { prefer '5.2.1' }
+        exclude module: 'opus-java'
+        exclude group: 'org.slf4j'
+    }
 
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
+    // SQLite JDBC driver
+    implementation('org.xerial:sqlite-jdbc:3.45.1.0') {
+        exclude group: 'org.slf4j'
+    }
+    jarJar(group: 'org.xerial', name: 'sqlite-jdbc', version: '[3.45.0.0,4.0)') {
+        version { prefer '3.45.1.0' }
+        exclude group: 'org.slf4j'
+    }
 
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
+    // jBCrypt - password hashing
+    implementation 'org.mindrot:jbcrypt:0.4'
+    jarJar(group: 'org.mindrot', name: 'jbcrypt', version: '[0.4,1.0)') {
+        version { prefer '0.4' }
+    }
 
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    // Test dependencies
+    testImplementation 'net.jqwik:jqwik:1.9.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.xerial:sqlite-jdbc:3.45.1.0'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

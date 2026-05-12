@@ -12,14 +12,18 @@ import net.neoforged.bus.api.SubscribeEvent;
 
 import pl.makoto.essentials.config.ConfigManager;
 import pl.makoto.essentials.config.Settings;
+import pl.makoto.essentials.auth.AuthManager;
+import pl.makoto.essentials.auth.AuthMode;
 import pl.makoto.essentials.util.BanManager;
 import pl.makoto.essentials.util.BackupManager;
 import pl.makoto.essentials.util.LuckPermsHook;
 import pl.makoto.essentials.util.Permissions;
+import pl.makoto.essentials.util.ShadowBanManager;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.commands.*;
 
 import net.minecraft.server.MinecraftServer;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import pl.makoto.essentials.util.MKTPlaceholders;
 import pl.makoto.essentials.util.TABHook;
 
@@ -41,6 +45,13 @@ public class MKTEssentials {
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         var dispatcher = event.getDispatcher();
+        
+        // Ensure config is loaded before command registration
+        // (RegisterCommandsEvent fires before ServerStartingEvent)
+        if (!ConfigManager.isInitialized()) {
+            ConfigManager.init();
+        }
+        
         LOGGER.info("Registering MKT Essentials commands...");
 
         if (Settings.isCommandEnabled("home")) HomeCommands.register(dispatcher);
@@ -59,6 +70,8 @@ public class MKTEssentials {
         if (Settings.isCommandEnabled("repair")) RepairCommand.register(dispatcher);
         if (Settings.isCommandEnabled("enchant")) EnchantCommand.register(dispatcher);
         if (Settings.isCommandEnabled("backup")) BackupCommands.register(dispatcher);
+        if (Settings.getAuthMode() != AuthMode.DISABLED) AuthCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("shadowban")) ShadowBanCommands.register(dispatcher);
     }
 
     @SubscribeEvent
@@ -68,7 +81,9 @@ public class MKTEssentials {
         ConfigManager.init();
         DataManager.init(server);
         BanManager.init(server);
+        ShadowBanManager.init(server);
         BackupManager.init(server);
+        AuthManager.init(server);
         LuckPermsHook.init();
         Permissions.init();
         try {
@@ -76,11 +91,59 @@ public class MKTEssentials {
         } catch (NoClassDefFoundError e) {
             LOGGER.info("Text Placeholder API not found — placeholders disabled.");
         }
+
+        // Log loaded integrations
+        logIntegrations();
     }
 
     @SubscribeEvent
     public void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
         // TAB must be initialized after all mods are fully loaded
         TABHook.init();
+        if (TABHook.isPresent()) {
+            LOGGER.info("  ✓ TAB — Tab list placeholders active");
+        }
+        LOGGER.info("MKT Essentials fully loaded.");
+    }
+
+    private void logIntegrations() {
+        LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        LOGGER.info("  MKT Essentials v1.0.0 — Integrations");
+        LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        LOGGER.info("  ✓ Config — YAML (config/mktessentials/)");
+        LOGGER.info("  ✓ Language — {} loaded", Settings.getLanguage());
+
+        if (net.neoforged.fml.ModList.get().isLoaded("luckperms")) {
+            LOGGER.info("  ✓ LuckPerms — Permissions & chat prefixes");
+        } else {
+            LOGGER.info("  ✗ LuckPerms — Not found (using vanilla OP)");
+        }
+
+        try {
+            Class.forName("eu.pb4.placeholders.api.Placeholders");
+            LOGGER.info("  ✓ Placeholder API — Placeholders active");
+        } catch (ClassNotFoundException e) {
+            LOGGER.info("  ✗ Placeholder API — Not found");
+        }
+
+        if (net.neoforged.fml.ModList.get().isLoaded("curios")) {
+            LOGGER.info("  ✓ Curios API — /invsee shows curios slots");
+        }
+
+        if (Settings.getAuthMode() != AuthMode.DISABLED) {
+            LOGGER.info("  ✓ Auth System — Mode: {}", Settings.getAuthMode().name().toLowerCase());
+            if (Settings.isDiscordEnabled()) {
+                LOGGER.info("  ✓ Discord Bot — Connecting...");
+            }
+        } else {
+            LOGGER.info("  ✗ Auth System — Disabled");
+        }
+
+        LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        AuthManager.shutdown();
     }
 }

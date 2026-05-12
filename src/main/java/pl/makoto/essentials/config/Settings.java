@@ -1,5 +1,7 @@
 package pl.makoto.essentials.config;
 
+import pl.makoto.essentials.auth.AuthMode;
+
 import java.util.*;
 
 public final class Settings {
@@ -38,6 +40,21 @@ public final class Settings {
     private static int backupInterval = 0; // 0 = disabled, seconds between scheduled backups
     private static int maxBackupsPerPlayer = 10;
 
+    // Auth
+    private static AuthMode authMode = AuthMode.DISABLED;
+    private static int sessionTimeoutHours = 24;
+    private static int maxLoginAttempts = 5;
+    private static int loginTimeoutSeconds = 60;
+    private static int newbieProtectionMinutes = 30;
+
+    // Discord
+    private static boolean discordEnabled = false;
+    private static String discordBotToken = "";
+    private static String discordGuildId = "";
+    private static String discordLinkCommandName = "link";
+    private static String discordLinkedRoleId = "";
+    private static boolean discordShowPlayerCount = true;
+
     // Messages
     private static String chatFormat = "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}";
     private static Map<String, String> groupChatFormats = new HashMap<>();
@@ -48,6 +65,9 @@ public final class Settings {
     private static List<String> broadcastMessages = List.of("&7Welcome to our server!", "&7Join our Discord: &b/discord", "&7Use &6/rtp &7to start your adventure!");
     private static String broadcastPrefix = "&8[&bINFO&8] &r";
     private static String broadcastOrder = "random";
+
+    // Moderation
+    private static String shadowbanMethod = "timeout";
 
     // Commands
     private static Map<String, Boolean> commandToggles = new HashMap<>();
@@ -97,9 +117,24 @@ public final class Settings {
     public static String getBroadcastPrefix() { return broadcastPrefix; }
     public static String getBroadcastOrder() { return broadcastOrder; }
 
+    public static String getShadowbanMethod() { return shadowbanMethod; }
+
     public static boolean isCommandEnabled(String commandName) {
         return commandToggles.getOrDefault(commandName, true);
     }
+
+    // Auth & Discord getters
+    public static AuthMode getAuthMode() { return authMode; }
+    public static int getSessionTimeoutHours() { return sessionTimeoutHours; }
+    public static int getMaxLoginAttempts() { return maxLoginAttempts; }
+    public static int getLoginTimeoutSeconds() { return loginTimeoutSeconds; }
+    public static int getNewbieProtectionMinutes() { return newbieProtectionMinutes; }
+    public static boolean isDiscordEnabled() { return discordEnabled; }
+    public static String getDiscordBotToken() { return discordBotToken; }
+    public static String getDiscordGuildId() { return discordGuildId; }
+    public static String getDiscordLinkCommandName() { return discordLinkCommandName; }
+    public static String getDiscordLinkedRoleId() { return discordLinkedRoleId; }
+    public static boolean isDiscordShowPlayerCount() { return discordShowPlayerCount; }
 
     // Loaders (called by ConfigManager)
     @SuppressWarnings("unchecked")
@@ -128,6 +163,7 @@ public final class Settings {
         backupOnQuit = ConfigManager.getNestedValue(map, "backup.on-quit", true);
         backupInterval = ConfigManager.getNestedValue(map, "backup.interval", 0);
         maxBackupsPerPlayer = ConfigManager.getNestedValue(map, "backup.max-per-player", 10);
+        shadowbanMethod = ConfigManager.getNestedValue(map, "moderation.shadowban-method", "timeout");
     }
 
     @SuppressWarnings("unchecked")
@@ -169,5 +205,21 @@ public final class Settings {
         if (msgs instanceof List<?> list) {
             broadcastMessages = list.stream().map(Object::toString).toList();
         }
+    }
+
+    static void loadAuth(Map<String, Object> map) {
+        String modeStr = ConfigManager.getNestedValue(map, "auth.mode", "disabled");
+        authMode = AuthMode.fromString(modeStr);
+        sessionTimeoutHours = ConfigManager.getNestedValue(map, "auth.session-timeout-hours", 24);
+        maxLoginAttempts = ConfigManager.getNestedValue(map, "auth.max-login-attempts", 5);
+        loginTimeoutSeconds = ConfigManager.getNestedValue(map, "auth.login-timeout-seconds", 60);
+        newbieProtectionMinutes = ConfigManager.getNestedValue(map, "auth.newbie-protection-minutes", 30);
+
+        discordEnabled = ConfigManager.getNestedValue(map, "discord.enabled", false);
+        discordBotToken = ConfigManager.getNestedValue(map, "discord.bot-token", "");
+        discordGuildId = ConfigManager.getNestedValue(map, "discord.guild-id", "");
+        discordLinkCommandName = ConfigManager.getNestedValue(map, "discord.link-command-name", "link");
+        discordLinkedRoleId = ConfigManager.getNestedValue(map, "discord.linked-role-id", "");
+        discordShowPlayerCount = ConfigManager.getNestedValue(map, "discord.show-player-count", true);
     }
 }

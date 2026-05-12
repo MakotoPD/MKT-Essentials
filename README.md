@@ -40,6 +40,8 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Kick** — `/kick <player> [reason]`
 - **Ban** — `/ban <player> [reason]`, `/tempban <player> <duration> [reason]`, `/unban <player>`
 - **Mute** — `/mute <player> [duration]`, `/unmute <player>` (supports offline players)
+- **Shadowban** — `/shadowban <player> [reason]`, `/unshadowban <player>`, `/shadowbanlist`
+  - Methods: timeout (fake connection error), full (server full), internal-error (fake crash), phantom (invisible to others)
 - **Ban Screen** — Banned players see reason + remaining time on connect
 
 ### 💾 Inventory Backups
@@ -126,6 +128,7 @@ chat:
 | `mktessentials.moderation.ban` | /ban | OP 3 |
 | `mktessentials.moderation.tempban` | /tempban | OP 3 |
 | `mktessentials.moderation.unban` | /unban | OP 3 |
+| `mktessentials.moderation.shadowban` | /shadowban, /unshadowban, /shadowbanlist | OP 3 |
 | `mktessentials.admin.mute` | /mute | OP 2 |
 
 ## 🛠️ Requirements

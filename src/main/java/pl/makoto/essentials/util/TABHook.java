@@ -11,6 +11,8 @@ import java.util.function.Function;
 public class TABHook {
     private static boolean isPresent = false;
 
+    public static boolean isPresent() { return isPresent; }
+
     public static void init() {
         isPresent = ModList.get().isLoaded("tab");
         if (isPresent) {

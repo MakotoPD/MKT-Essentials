@@ -99,6 +99,46 @@ final class DefaultTemplates {
               interval: 0
               # Maximum number of backups to keep per player (oldest are deleted)
               max-per-player: 10
+
+            # ============================================
+            #  Authentication & Discord Link
+            # ============================================
+            auth:
+              # Mode: "full", "auth-only", "link-only", "optional", "disabled"
+              mode: "disabled"
+              # Hours before a session expires (auto-login from same IP)
+              session-timeout-hours: 24
+              # Maximum failed login attempts before kick
+              max-login-attempts: 5
+              # Seconds before an unauthenticated player is kicked
+              login-timeout-seconds: 60
+              # Minutes of invulnerability for first-time players (0 = disabled)
+              newbie-protection-minutes: 30
+
+            # ============================================
+            #  Shadowban
+            # ============================================
+            moderation:
+              # Shadowban method: "timeout", "full", "internal-error", "phantom"
+              # timeout: Shows "Connection timed out" on join
+              # full: Shows "Server is full!" on join
+              # internal-error: Kicks after 2-3 seconds with fake internal error
+              # phantom: Player joins but is invisible to others, chat hidden
+              shadowban-method: "timeout"
+
+            discord:
+              # Enable the embedded Discord bot
+              enabled: false
+              # Discord bot token (from Discord Developer Portal)
+              bot-token: ""
+              # Guild (server) ID where the bot operates
+              guild-id: ""
+              # Name of the slash command for linking (language-dependent)
+              link-command-name: "link"
+              # Role ID to assign when a player links their account (empty = disabled)
+              linked-role-id: ""
+              # Show online player count in bot status
+              show-player-count: true
             """;
 
     static final String COMMANDS_YML = """
@@ -144,6 +184,7 @@ final class DefaultTemplates {
               kick: true      # /kick <player> [reason]
               ban: true       # /ban, /tempban, /unban
               mute: true      # /mute, /unmute
+              shadowban: true  # /shadowban, /unshadowban, /shadowbanlist
 
             # ============================================
             #  Utility Commands
@@ -276,6 +317,12 @@ final class DefaultTemplates {
               muted-notify: "&cYou have been muted {duration}."
               already-muted: "&cYou are muted for {remaining}."
               permanently-muted: "&cYou are permanently muted."
+              shadowbanned: "&7Shadowbanned &6{player}&7. Method: &e{method}&7. Reason: &f{reason}"
+              unshadowbanned: "&aRemoved shadowban from &6{player}&a."
+              not-shadowbanned: "&cPlayer is not shadowbanned."
+              shadowban-list-header: "&7--- Shadowbanned Players ---"
+              shadowban-list-entry: "&7- &6{player} &7({method}) &8[{reason}]"
+              shadowban-list-empty: "&7No shadowbanned players."
 
             utility:
               repair-success: "&aItem repaired successfully."
@@ -295,6 +342,44 @@ final class DefaultTemplates {
 
             back:
               no-location: "&cNo back location found!"
+
+            auth:
+              welcome-link-required: "&7You must link your Discord account to play on this server."
+              welcome-register: "&7Please register with &6/register <password> <password>"
+              welcome-login: "&7Please login with &6/login <password>"
+              link-code: "&7Your link code: &b&l{code}"
+              link-instruction: "&7Use &b/{command} {code} &7on our Discord server to link your account."
+              link-success: "&aYour Discord account has been linked successfully!"
+              register-success: "&aRegistration successful! You are now logged in."
+              login-success: "&aLogin successful! Welcome back."
+              login-failed: "&cWrong password! Attempt {attempts}/{max}."
+              already-registered: "&cYou are already registered."
+              already-linked: "&cYour account is already linked to a Discord account."
+              passwords-dont-match: "&cPasswords do not match."
+              frozen-reminder: "&7Please authenticate to continue playing."
+              kicked-timeout: "&cYou were kicked for not authenticating within {seconds} seconds."
+              newbie-protection: "&aYou have newbie protection for &6{minutes} &aminutes."
+              password-changed: "&aPassword changed successfully."
+              wrong-old-password: "&cThe old password is incorrect."
+              must-link-first: "&cYou must link your Discord account before registering."
+              not-registered: "&cYou are not registered. Use &6/register &cto create an account."
+              discord-info: "&7Linked Discord ID: &b{discord_id}"
+              no-discord-linked: "&7No Discord account linked."
+              unlink-success: "&aDiscord account unlinked successfully."
+              code-invalid: "&cInvalid or expired link code."
+              code-expired: "&cThis link code has expired. Generate a new one with /link."
+              discord-already-linked: "&cThis Discord account is already linked to another player."
+              password-too-short: "&cPassword must be at least 4 characters."
+              password-too-long: "&cPassword must be at most 64 characters."
+              admin-reset: "&aAccount for &6{player} &ahas been reset."
+              admin-unlink: "&aDiscord unlinked for &6{player}&a."
+              admin-info-header: "&7--- Account Info for &6{player} &7---"
+              admin-info-uuid: "&7UUID: &f{uuid}"
+              admin-info-discord: "&7Discord: &f{discord}"
+              admin-info-registered: "&7Registered: &f{date}"
+              admin-info-last-login: "&7Last login: &f{date}"
+              admin-info-last-ip: "&7Last IP: &f{ip}"
+              admin-no-account: "&cNo account found for that player."
             """;
 
     static final String LANG_PL_PL = """
@@ -365,6 +450,12 @@ final class DefaultTemplates {
               muted-notify: "&cZostales wyciszony {duration}."
               already-muted: "&cJestes wyciszony jeszcze przez {remaining}."
               permanently-muted: "&cJestes permanentnie wyciszony."
+              shadowbanned: "&7Shadowban nalozony na &6{player}&7. Metoda: &e{method}&7. Powod: &f{reason}"
+              unshadowbanned: "&aUsunieto shadowban z &6{player}&a."
+              not-shadowbanned: "&cGracz nie jest shadowbanowany."
+              shadowban-list-header: "&7--- Shadowbanowani gracze ---"
+              shadowban-list-entry: "&7- &6{player} &7({method}) &8[{reason}]"
+              shadowban-list-empty: "&7Brak shadowbanowanych graczy."
 
             utility:
               repair-success: "&aPrzedmiot naprawiony pomyslnie."
@@ -384,5 +475,43 @@ final class DefaultTemplates {
 
             back:
               no-location: "&cNie znaleziono poprzedniej lokalizacji!"
+
+            auth:
+              welcome-link-required: "&7Musisz polaczyc swoje konto Discord, aby grac na tym serwerze."
+              welcome-register: "&7Zarejestruj sie komenda &6/register <haslo> <haslo>"
+              welcome-login: "&7Zaloguj sie komenda &6/login <haslo>"
+              link-code: "&7Twoj kod polaczenia: &b&l{code}"
+              link-instruction: "&7Uzyj &b/{command} {code} &7na naszym Discordzie, aby polaczyc konto."
+              link-success: "&aTwoje konto Discord zostalo pomyslnie polaczone!"
+              register-success: "&aRejestracja udana! Jestes teraz zalogowany."
+              login-success: "&aLogowanie udane! Witaj ponownie."
+              login-failed: "&cBledne haslo! Proba {attempts}/{max}."
+              already-registered: "&cJestes juz zarejestrowany."
+              already-linked: "&cTwoje konto jest juz polaczone z kontem Discord."
+              passwords-dont-match: "&cHasla nie sa identyczne."
+              frozen-reminder: "&7Prosze sie uwierzytelnic, aby kontynuowac gre."
+              kicked-timeout: "&cZostales wyrzucony za brak uwierzytelnienia w ciagu {seconds} sekund."
+              newbie-protection: "&aMasz ochrone dla nowych graczy przez &6{minutes} &aminut."
+              password-changed: "&aHaslo zostalo zmienione pomyslnie."
+              wrong-old-password: "&cStare haslo jest nieprawidlowe."
+              must-link-first: "&cMusisz najpierw polaczyc konto Discord przed rejestracja."
+              not-registered: "&cNie jestes zarejestrowany. Uzyj &6/register &caby utworzyc konto."
+              discord-info: "&7Polaczone Discord ID: &b{discord_id}"
+              no-discord-linked: "&7Brak polaczonego konta Discord."
+              unlink-success: "&aKonto Discord zostalo odlaczone pomyslnie."
+              code-invalid: "&cNieprawidlowy lub wygasly kod polaczenia."
+              code-expired: "&cTen kod polaczenia wygasl. Wygeneruj nowy komenda /link."
+              discord-already-linked: "&cTo konto Discord jest juz polaczone z innym graczem."
+              password-too-short: "&cHaslo musi miec co najmniej 4 znaki."
+              password-too-long: "&cHaslo moze miec maksymalnie 64 znaki."
+              admin-reset: "&aKonto gracza &6{player} &azostalo zresetowane."
+              admin-unlink: "&aDiscord odlaczony dla &6{player}&a."
+              admin-info-header: "&7--- Informacje o koncie &6{player} &7---"
+              admin-info-uuid: "&7UUID: &f{uuid}"
+              admin-info-discord: "&7Discord: &f{discord}"
+              admin-info-registered: "&7Zarejestrowano: &f{date}"
+              admin-info-last-login: "&7Ostatnie logowanie: &f{date}"
+              admin-info-last-ip: "&7Ostatnie IP: &f{ip}"
+              admin-no-account: "&cNie znaleziono konta dla tego gracza."
             """;
 }

@@ -11,6 +11,9 @@ import java.util.*;
 public final class ConfigManager {
     private static Path configDir;
     private static Path langDir;
+    private static boolean initialized = false;
+
+    public static boolean isInitialized() { return initialized; }
 
     public static void init() {
         configDir = Path.of("config", "mktessentials");
@@ -22,6 +25,7 @@ public final class ConfigManager {
         writeDefaultIfMissing(langDir.resolve("en_us.yml"), DefaultTemplates.LANG_EN_US);
         writeDefaultIfMissing(langDir.resolve("pl_pl.yml"), DefaultTemplates.LANG_PL_PL);
         loadAll();
+        initialized = true;
     }
 
     public static boolean reload() {
@@ -42,6 +46,7 @@ public final class ConfigManager {
         Settings.loadSettings(settings != null ? settings : Map.of());
         Settings.loadCommands(commands != null ? commands : Map.of());
         Settings.loadMessages(messages != null ? messages : Map.of());
+        Settings.loadAuth(settings != null ? settings : Map.of());
 
         I18n.init(Settings.getLanguage());
     }

@@ -75,6 +75,8 @@ public class MKTCommand {
             source.sendSuccess(() -> MessageUtils.format("   &7/ban <player> [reason], /tempban <player> <duration> [reason]"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/unban <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/mute <player> [duration], /unmute <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/shadowban <player> [reason], /unshadowban <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/shadowbanlist"), false);
             source.sendSuccess(() -> MessageUtils.format(""), false);
         }
 

@@ -36,6 +36,37 @@ public class PlayerListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         UUID uuid = player.getUUID();
+
+        // Shadowban check — BEFORE ban check so shadowban takes priority
+        if (ShadowBanManager.isShadowBanned(uuid)) {
+            String method = Settings.getShadowbanMethod();
+            switch (method) {
+                case "timeout" -> {
+                    player.connection.disconnect(Component.literal("io.netty.channel.ConnectTimeoutException: connection timed out"));
+                    return;
+                }
+                case "full" -> {
+                    player.connection.disconnect(Component.literal("Disconnected"));
+                    return;
+                }
+                case "internal-error" -> {
+                    // Let them join, then kick after 40-60 ticks (2-3 seconds)
+                    int delay = 40 + player.getServer().overworld().getRandom().nextInt(21);
+                    player.getServer().tell(new TickTask(player.getServer().getTickCount() + delay, () -> {
+                        ServerPlayer target = player.getServer().getPlayerList().getPlayer(uuid);
+                        if (target != null) {
+                            target.connection.disconnect(Component.literal(
+                                    "Internal Exception: io.netty.handler.codec.DecoderException: java.lang.IndexOutOfBoundsException: readerIndex(47) + length(1) exceeds writerIndex(47)"));
+                        }
+                    }));
+                }
+                case "phantom" -> {
+                    // Let them join, add to phantom set — handled in onPlayerJoin and onChat
+                    ShadowBanManager.addPhantom(uuid);
+                }
+            }
+        }
+
         if (BanManager.isBanned(uuid)) {
             BanEntry ban = BanManager.getBan(uuid);
             if (ban == null) return; // Race condition safety
@@ -88,8 +119,17 @@ public class PlayerListener {
             // Hide vanished players from this joining player's tab list
             AdminManager.hideVanishedFromJoiningPlayer(player);
 
+            // If this player is a phantom (shadowban), hide them from everyone's tab list
+            if (ShadowBanManager.isPhantom(player.getUUID())) {
+                hidePhantomFromTabList(player);
+            }
+            // Hide phantom players from this joining player's tab list
+            hidePhantomPlayersFromJoiningPlayer(player);
+
             if (Settings.isJoinQuitEnabled()) {
                 if (AdminManager.isVanished(player.getUUID())) return;
+                // Don't broadcast join message for phantom players
+                if (ShadowBanManager.isPhantom(player.getUUID())) return;
 
                 player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getJoinMessage()), false);
             }
@@ -107,9 +147,15 @@ public class PlayerListener {
         MessagingCommands.cleanupPlayer(player.getUUID());
         TpaManager.cleanupPlayer(player.getUUID());
         AdminManager.cleanupOnDisconnect(player.getUUID());
+        ShadowBanManager.removePhantom(player.getUUID());
 
         if (Settings.isJoinQuitEnabled()) {
             if (AdminManager.isVanished(player.getUUID())) {
+                DataManager.evictPlayer(player.getUUID());
+                return;
+            }
+            // Don't broadcast quit message for phantom players
+            if (ShadowBanManager.isPhantom(player.getUUID())) {
                 DataManager.evictPlayer(player.getUUID());
                 return;
             }
@@ -152,6 +198,20 @@ public class PlayerListener {
     @SubscribeEvent
     public static void onChat(ServerChatEvent event) {
         ServerPlayer player = event.getPlayer();
+
+        // Phantom shadowban: cancel the message but echo it back to the sender
+        if (ShadowBanManager.isPhantom(player.getUUID())) {
+            event.setCanceled(true);
+            // Build the message as if it was sent normally, so the player thinks it went through
+            String group = LuckPermsHook.getPrimaryGroup(player);
+            String chatFormat = Settings.getChatFormatForGroup(group);
+            Component prefix = MessageUtils.format(player, chatFormat.replace("{message}", ""));
+            String messageText = event.getMessage().getString();
+            Component formattedMessage = MessageUtils.formatWithPermissions(player, messageText);
+            Component finalMsg = prefix.copy().append(formattedMessage);
+            player.sendSystemMessage(finalMsg);
+            return;
+        }
 
         // Mute check: prevent muted players from chatting
         PlayerData playerData = DataManager.getPlayerData(player.getUUID());
@@ -253,5 +313,36 @@ public class PlayerListener {
         if (minutes > 0) sb.append(minutes).append("m ");
         if (seconds > 0 || sb.isEmpty()) sb.append(seconds).append("s");
         return sb.toString().trim();
+    }
+
+    /**
+     * Hides a phantom player from the tab list for all other players.
+     * The phantom player can still see everyone else.
+     */
+    private static void hidePhantomFromTabList(ServerPlayer phantomPlayer) {
+        net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removePacket =
+                new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(phantomPlayer.getUUID()));
+
+        for (ServerPlayer viewer : phantomPlayer.getServer().getPlayerList().getPlayers()) {
+            if (viewer.getUUID().equals(phantomPlayer.getUUID())) continue; // Don't hide from self
+            viewer.connection.send(removePacket);
+        }
+    }
+
+    /**
+     * Hides all currently phantom players from a joining player's tab list.
+     * (The phantom players themselves can see the joining player.)
+     */
+    private static void hidePhantomPlayersFromJoiningPlayer(ServerPlayer joiningPlayer) {
+        // Don't hide phantoms from themselves
+        if (ShadowBanManager.isPhantom(joiningPlayer.getUUID())) return;
+
+        for (ServerPlayer online : joiningPlayer.getServer().getPlayerList().getPlayers()) {
+            if (ShadowBanManager.isPhantom(online.getUUID()) && !online.getUUID().equals(joiningPlayer.getUUID())) {
+                net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removePacket =
+                        new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(online.getUUID()));
+                joiningPlayer.connection.send(removePacket);
+            }
+        }
     }
 }
