@@ -51,7 +51,7 @@ public class MKTCommand {
 
         // Utility — always visible
         source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Utility"), false);
-        source.sendSuccess(() -> MessageUtils.format("   &7/kit <name>, /hat, /ping"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/kit <name>, /hat, /ping, /near, /seen"), false);
         if (isAdmin) {
             source.sendSuccess(() -> MessageUtils.format("   &7/repair, /enchant <enchantment> <level>"), false);
         }
@@ -65,6 +65,9 @@ public class MKTCommand {
             source.sendSuccess(() -> MessageUtils.format("   &7/tpall, /invsee <player>, /enderchest <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/invbackup save|list|restore|delete"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/day, /night, /sun, /rain"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/gm, /gmc, /gms, /gma, /gmsp, /tp, /tphere, /tppos"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/i <item> [amount], /more, /skull, /sudo"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/clearitems [radius]"), false);
             source.sendSuccess(() -> MessageUtils.format(""), false);
         }
 
@@ -109,6 +112,13 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.god"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.clearinv"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.nick"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.gamemode"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.tp"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.give"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.more"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.skull"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.sudo"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.clearitems"), false);
         
         source.sendSuccess(() -> MessageUtils.format("&7Kit nodes:"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.kit.<name>"), false);
@@ -130,6 +140,8 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.streaming"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.hat"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.ping"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.near"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.seen"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.kickme"), false);
         source.sendSuccess(() -> MessageUtils.format("&8&m                                           "), false);
         

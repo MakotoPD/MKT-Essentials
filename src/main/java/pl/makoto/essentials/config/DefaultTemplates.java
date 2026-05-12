@@ -139,6 +139,37 @@ final class DefaultTemplates {
               linked-role-id: ""
               # Show online player count in bot status
               show-player-count: true
+
+            # ============================================
+            #  Item Management
+            # ============================================
+            items:
+              # Custom despawn time for ground items in seconds (0 = use vanilla behavior)
+              despawn-time: 300
+              # Merge nearby identical items into stacks to reduce entity count
+              stacking: true
+              # Radius in blocks to search for stackable items
+              stacking-radius: 3
+              # Show floating hologram above items with name and countdown
+              show-hologram: true
+              # Global sweep interval in seconds (0 = disabled, only individual timers)
+              sweep-interval: 0
+              # Seconds before sweep to broadcast warning
+              sweep-warning: 30
+              # Items that never despawn (supports modded items, e.g., "create:brass_ingot")
+              whitelist:
+                - "minecraft:netherite_sword"
+                - "minecraft:netherite_pickaxe"
+                - "minecraft:netherite_axe"
+                - "minecraft:netherite_shovel"
+                - "minecraft:netherite_hoe"
+                - "minecraft:netherite_helmet"
+                - "minecraft:netherite_chestplate"
+                - "minecraft:netherite_leggings"
+                - "minecraft:netherite_boots"
+                - "minecraft:elytra"
+                - "minecraft:shulker_box"
+                - "minecraft:totem_of_undying"
             """;
 
     static final String COMMANDS_YML = """
@@ -176,6 +207,7 @@ final class DefaultTemplates {
               invsee: true    # /invsee <player>
               enderchest: true # /enderchest <player>
               backup: true    # /invbackup save|list|restore|delete
+              clearitems: true # /clearitems [radius]
 
             # ============================================
             #  Moderation Commands
@@ -195,6 +227,7 @@ final class DefaultTemplates {
               kit: true       # /kit, /createkit, /deletekit
               nick: true      # /nick [nickname]
               msg: true       # /msg, /reply
+              shortcuts: true # /gm, /gmc, /gms, /gma, /gmsp, /tp, /tphere, /tppos, /i, /more, /skull, /near, /seen, /sudo
             """;
 
     static final String MESSAGES_YML = """
@@ -380,6 +413,33 @@ final class DefaultTemplates {
               admin-info-last-login: "&7Last login: &f{date}"
               admin-info-last-ip: "&7Last IP: &f{ip}"
               admin-no-account: "&cNo account found for that player."
+
+            shortcuts:
+              gamemode-self: "&7Gamemode set to &6{mode}&7."
+              gamemode-other: "&7Set &6{player}&7's gamemode to &6{mode}&7."
+              tp-to: "&7Teleported to &6{player}&7."
+              tp-here: "&7Teleported &6{player} &7to you."
+              tp-pos: "&7Teleported to &6{x}, {y}, {z}&7."
+              invalid-item: "&cInvalid item ID: &6{item}"
+              item-not-found: "&cItem not found: &6{item}"
+              gave-item: "&7Gave &6{amount}x {item}&7."
+              must-hold-item: "&cYou must be holding an item!"
+              more-success: "&7Stack size set to &6{amount}&7."
+              skull-given: "&7Gave skull of &6{player}&7."
+              near-none: "&7No players within &6{radius} &7blocks."
+              near-found: "&7Nearby (&6{count}&7): {list}"
+              seen-online: "&6{player} &7is currently &aonline&7."
+              seen-never: "&cPlayer '&6{player}&c' has never joined this server."
+              seen-ago: "&6{player} &7was last seen &e{time} ago&7."
+              seen-unknown: "&6{player} &7has played before but last seen time is unknown."
+              sudo-executed: "&7Forced &6{player} &7to execute: &f/{command}"
+
+            items:
+              sweep-warning: "&e\u26A0 &7Ground items will be cleared in &6{seconds} &7seconds!"
+              sweep-cleared: "&7Cleared &6{count} &7ground items."
+              clearitems-success: "&aCleared &6{count} &aitems from the ground."
+              clearitems-radius: "&aCleared &6{count} &aitems within &6{radius} &ablocks."
+              clearitems-none: "&7No items to clear."
             """;
 
     static final String LANG_PL_PL = """
@@ -513,5 +573,32 @@ final class DefaultTemplates {
               admin-info-last-login: "&7Ostatnie logowanie: &f{date}"
               admin-info-last-ip: "&7Ostatnie IP: &f{ip}"
               admin-no-account: "&cNie znaleziono konta dla tego gracza."
+
+            shortcuts:
+              gamemode-self: "&7Tryb gry ustawiony na &6{mode}&7."
+              gamemode-other: "&7Ustawiono tryb gry &6{player}&7 na &6{mode}&7."
+              tp-to: "&7Teleportowano do &6{player}&7."
+              tp-here: "&7Teleportowano &6{player} &7do ciebie."
+              tp-pos: "&7Teleportowano na &6{x}, {y}, {z}&7."
+              invalid-item: "&cNieprawidlowe ID przedmiotu: &6{item}"
+              item-not-found: "&cNie znaleziono przedmiotu: &6{item}"
+              gave-item: "&7Dano &6{amount}x {item}&7."
+              must-hold-item: "&cMusisz trzymac przedmiot!"
+              more-success: "&7Rozmiar stosu ustawiony na &6{amount}&7."
+              skull-given: "&7Dano glowe &6{player}&7."
+              near-none: "&7Brak graczy w zasiegu &6{radius} &7blokow."
+              near-found: "&7W poblizu (&6{count}&7): {list}"
+              seen-online: "&6{player} &7jest aktualnie &aonline&7."
+              seen-never: "&cGracz '&6{player}&c' nigdy nie dolaczyl do tego serwera."
+              seen-ago: "&6{player} &7byl widziany &e{time} temu&7."
+              seen-unknown: "&6{player} &7gral wczesniej ale czas ostatniej wizyty jest nieznany."
+              sudo-executed: "&7Wymuszono na &6{player} &7wykonanie: &f/{command}"
+
+            items:
+              sweep-warning: "&e\u26A0 &7Przedmioty na ziemi zostana usuniete za &6{seconds} &7sekund!"
+              sweep-cleared: "&7Usunieto &6{count} &7przedmiotow z ziemi."
+              clearitems-success: "&aUsunieto &6{count} &aprzedmiotow z ziemi."
+              clearitems-radius: "&aUsunieto &6{count} &aprzedmiotow w zasiegu &6{radius} &ablokow."
+              clearitems-none: "&7Brak przedmiotow do usuniecia."
             """;
 }

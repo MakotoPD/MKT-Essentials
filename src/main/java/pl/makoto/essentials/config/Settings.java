@@ -69,6 +69,15 @@ public final class Settings {
     // Moderation
     private static String shadowbanMethod = "timeout";
 
+    // Items
+    private static int itemDespawnTime = 300; // seconds, 0 = disabled
+    private static boolean itemStacking = true;
+    private static int itemStackingRadius = 3;
+    private static boolean itemHologramEnabled = true;
+    private static int itemSweepInterval = 0; // seconds, 0 = disabled
+    private static int itemSweepWarning = 30; // seconds before sweep to warn
+    private static List<String> itemWhitelist = List.of("minecraft:netherite_sword", "minecraft:netherite_pickaxe", "minecraft:elytra", "minecraft:shulker_box");
+
     // Commands
     private static Map<String, Boolean> commandToggles = new HashMap<>();
 
@@ -119,6 +128,15 @@ public final class Settings {
 
     public static String getShadowbanMethod() { return shadowbanMethod; }
 
+    // Items getters
+    public static int getItemDespawnTime() { return itemDespawnTime; }
+    public static boolean isItemStacking() { return itemStacking; }
+    public static int getItemStackingRadius() { return itemStackingRadius; }
+    public static boolean isItemHologramEnabled() { return itemHologramEnabled; }
+    public static int getItemSweepInterval() { return itemSweepInterval; }
+    public static int getItemSweepWarning() { return itemSweepWarning; }
+    public static List<String> getItemWhitelist() { return itemWhitelist; }
+
     public static boolean isCommandEnabled(String commandName) {
         return commandToggles.getOrDefault(commandName, true);
     }
@@ -164,6 +182,18 @@ public final class Settings {
         backupInterval = ConfigManager.getNestedValue(map, "backup.interval", 0);
         maxBackupsPerPlayer = ConfigManager.getNestedValue(map, "backup.max-per-player", 10);
         shadowbanMethod = ConfigManager.getNestedValue(map, "moderation.shadowban-method", "timeout");
+
+        // Items
+        itemDespawnTime = ConfigManager.getNestedValue(map, "items.despawn-time", 300);
+        itemStacking = ConfigManager.getNestedValue(map, "items.stacking", true);
+        itemStackingRadius = ConfigManager.getNestedValue(map, "items.stacking-radius", 3);
+        itemHologramEnabled = ConfigManager.getNestedValue(map, "items.show-hologram", true);
+        itemSweepInterval = ConfigManager.getNestedValue(map, "items.sweep-interval", 0);
+        itemSweepWarning = ConfigManager.getNestedValue(map, "items.sweep-warning", 30);
+        Object whitelistObj = ConfigManager.getNestedValue(map, "items.whitelist", (Object) itemWhitelist);
+        if (whitelistObj instanceof List<?> list) {
+            itemWhitelist = list.stream().map(Object::toString).toList();
+        }
     }
 
     @SuppressWarnings("unchecked")

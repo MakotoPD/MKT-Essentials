@@ -16,6 +16,7 @@ import pl.makoto.essentials.auth.AuthManager;
 import pl.makoto.essentials.auth.AuthMode;
 import pl.makoto.essentials.util.BanManager;
 import pl.makoto.essentials.util.BackupManager;
+import pl.makoto.essentials.util.ItemCleanerManager;
 import pl.makoto.essentials.util.LuckPermsHook;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.ShadowBanManager;
@@ -72,6 +73,8 @@ public class MKTEssentials {
         if (Settings.isCommandEnabled("backup")) BackupCommands.register(dispatcher);
         if (Settings.getAuthMode() != AuthMode.DISABLED) AuthCommands.register(dispatcher);
         if (Settings.isCommandEnabled("shadowban")) ShadowBanCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("shortcuts")) ShortcutCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("clearitems")) ClearItemsCommand.register(dispatcher);
     }
 
     @SubscribeEvent
@@ -91,6 +94,9 @@ public class MKTEssentials {
         } catch (NoClassDefFoundError e) {
             LOGGER.info("Text Placeholder API not found — placeholders disabled.");
         }
+
+        // Clean up orphaned hologram ArmorStands from previous sessions
+        ItemCleanerManager.cleanupOrphanedHolograms(server);
 
         // Log loaded integrations
         logIntegrations();
