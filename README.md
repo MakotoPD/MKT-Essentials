@@ -13,6 +13,7 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Back** — `/back` return to previous location (death/teleport)
 - **Top** — `/top` teleport to highest block
 - **TpAll** — `/tpall` teleport all players to you
+- **TP shortcuts** — `/tp <player>`, `/tphere <player>`, `/tppos <x> <y> <z>`
 
 ### 💬 Chat & Identity
 - **Nicknames** — `/nick` custom display names
@@ -31,18 +32,31 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Fly/God** — `/fly`, `/god` (persists across reconnects)
 - **Vanish** — `/vanish` (persists, fake join/quit messages)
 - **Speed** — `/speed fly|walk <0-10>`
+- **Gamemode** — `/gmc`, `/gms`, `/gma`, `/gmsp`, `/gm <0-3> [player]`
 - **Inventory** — `/invsee <player>`, `/enderchest <player>` (supports offline players + Curios)
-- **Clear** — `/clearinv`
+- **Items** — `/i <item> [amount]`, `/more`, `/skull <player>`
+- **Clear** — `/clearinv`, `/clearitems [radius]`
 - **Repair** — `/repair` item in hand
 - **Enchant** — `/enchant <enchantment> <level>`
+- **Sudo** — `/sudo <player> <command>`
 
 ### 🔨 Moderation
 - **Kick** — `/kick <player> [reason]`
 - **Ban** — `/ban <player> [reason]`, `/tempban <player> <duration> [reason]`, `/unban <player>`
 - **Mute** — `/mute <player> [duration]`, `/unmute <player>` (supports offline players)
 - **Shadowban** — `/shadowban <player> [reason]`, `/unshadowban <player>`, `/shadowbanlist`
-  - Methods: timeout (fake connection error), full (server full), internal-error (fake crash), phantom (invisible to others)
+  - Methods: timeout, full, internal-error, phantom (configurable)
 - **Ban Screen** — Banned players see reason + remaining time on connect
+
+### 🔐 Authentication & Discord Link
+- **Auth modes** — full, auth-only, link-only, optional, disabled
+- **Register/Login** — `/register <password> <password>`, `/login <password>`
+- **Discord Link** — `/link` generates 6-digit code, use on Discord to link accounts
+- **Embedded Discord Bot** — JDA-based, registers slash commands, assigns roles
+- **Freeze System** — Unauthenticated players can't move/interact/chat
+- **Newbie Protection** — Configurable invulnerability for first-time players
+- **Session Management** — Auto-login from same IP within timeout
+- **Admin** — `/auth reset|unlink|info <player>`
 
 ### 💾 Inventory Backups
 - **Auto-backup** — On death, join, quit (configurable)
@@ -52,6 +66,14 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Delete** — `/invbackup delete <player> <file>`
 - **Scheduled** — Optional periodic backups for all online players
 
+### 🧹 Item Management
+- **Auto-despawn** — Configurable timer per item (default 5 min)
+- **Item Stacking** — Merges identical nearby items to reduce entity count
+- **Holograms** — Floating name + countdown above ground items
+- **Whitelist** — Items that never despawn (supports modded: `create:brass_ingot`, wildcards: `minecraft:netherite_*`)
+- **Global Sweep** — Optional periodic cleanup with broadcast warning
+- **Manual** — `/clearitems [radius]`
+
 ### 📢 Broadcasts
 - **Automated** — Configurable interval, random or sequential order
 - **Custom prefix** — Per-broadcast formatting
@@ -59,22 +81,28 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 ### ⏰ Time & Weather
 - `/day`, `/night`, `/sun`, `/rain`
 
+### 🔍 Utility
+- `/near [radius]` — List nearby players
+- `/seen <player>` — When player was last online
+- `/ping` — Show your latency
+- `/hat` — Put item on head
+
 ## ⚙️ Configuration
 
-MKT Essentials uses a YAML-based configuration system in `config/mktessentials/`:
+YAML-based configuration in `config/mktessentials/`:
 
 ```
 config/mktessentials/
-├── settings.yml      — Teleportation, RTP, AFK, backups, general settings
+├── settings.yml      — All settings (teleport, RTP, AFK, backups, auth, discord, items)
 ├── commands.yml      — Enable/disable individual commands
 ├── messages.yml      — Chat format, join/quit messages, broadcasts
+├── accounts.db       — SQLite database (auth system)
 └── lang/
     ├── en_us.yml     — English messages
     └── pl_pl.yml     — Polish messages
 ```
 
 ### Command Toggle
-Disable any command by setting it to `false` in `commands.yml`:
 ```yaml
 admin:
   fly: true
@@ -83,17 +111,13 @@ admin:
 ```
 
 ### Internationalization
-Change language in `settings.yml`:
 ```yaml
 language: "pl_pl"
 ```
-Add custom languages by creating new files in `config/mktessentials/lang/`.
 
 ### Per-Group Chat Format
-In `messages.yml`:
 ```yaml
 chat:
-  format: "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}"
   group-formats:
     admin: "&c[Admin] &f%mktessentials:name%&8: &f{message}"
     vip: "&6[VIP] &f%mktessentials:name%&8: &f{message}"
@@ -110,6 +134,10 @@ chat:
 | `mktessentials.command.rtp` | /rtp | All |
 | `mktessentials.command.tpa` | TPA commands | All |
 | `mktessentials.command.nick` | /nick | All |
+| `mktessentials.command.hat` | /hat | All |
+| `mktessentials.command.ping` | /ping | All |
+| `mktessentials.command.near` | /near | All |
+| `mktessentials.command.seen` | /seen | All |
 | `mktessentials.admin.heal` | /heal | OP 2 |
 | `mktessentials.admin.feed` | /feed | OP 2 |
 | `mktessentials.admin.fly` | /fly | OP 2 |
@@ -121,6 +149,13 @@ chat:
 | `mktessentials.admin.invsee` | /invsee | OP 2 |
 | `mktessentials.admin.enderchest` | /enderchest | OP 2 |
 | `mktessentials.admin.backup` | /invbackup | OP 2 |
+| `mktessentials.admin.clearitems` | /clearitems | OP 2 |
+| `mktessentials.admin.gamemode` | /gm, /gmc, /gms, /gma, /gmsp | OP 2 |
+| `mktessentials.admin.tp` | /tp, /tphere, /tppos | OP 2 |
+| `mktessentials.admin.give` | /i, /item | OP 2 |
+| `mktessentials.admin.more` | /more | OP 2 |
+| `mktessentials.admin.skull` | /skull | OP 2 |
+| `mktessentials.admin.sudo` | /sudo | OP 3 |
 | `mktessentials.admin.reload` | /mkt reload | OP 3 |
 | `mktessentials.utility.repair` | /repair | OP 2 |
 | `mktessentials.utility.enchant` | /enchant | OP 2 |
@@ -128,8 +163,11 @@ chat:
 | `mktessentials.moderation.ban` | /ban | OP 3 |
 | `mktessentials.moderation.tempban` | /tempban | OP 3 |
 | `mktessentials.moderation.unban` | /unban | OP 3 |
-| `mktessentials.moderation.shadowban` | /shadowban, /unshadowban, /shadowbanlist | OP 3 |
+| `mktessentials.moderation.shadowban` | /shadowban | OP 3 |
 | `mktessentials.admin.mute` | /mute | OP 2 |
+| `mktessentials.auth.admin.reset` | /auth reset | OP 3 |
+| `mktessentials.auth.admin.unlink` | /auth unlink | OP 3 |
+| `mktessentials.auth.admin.info` | /auth info | OP 3 |
 
 ## 🛠️ Requirements
 
@@ -144,6 +182,7 @@ chat:
 | **Text Placeholder API** | Placeholder support in chat/tab (`%mktessentials:...%`) |
 | **TAB** | Tab list placeholders (`%mkt_full_name%`, `%mkt_prefix%`, `%mkt_suffix%`) |
 | **Curios API** | /invsee shows Curios slots |
+| **Discord** | Embedded bot for account linking (JDA) |
 
 All integrations are optional — the mod works without them.
 
