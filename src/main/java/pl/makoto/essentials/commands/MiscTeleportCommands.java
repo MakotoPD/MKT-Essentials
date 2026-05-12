@@ -63,12 +63,12 @@ public class MiscTeleportCommands {
         if (player == null) return 0;
 
         PlayerData data = DataManager.getPlayerData(player.getUUID());
-        if (data.getBackStack().isEmpty()) {
+        PlayerData.SavedLocation loc = data.popBackLocation();
+        if (loc == null) {
             source.sendFailure(MessageUtils.prefixed("&cNo back location found!"));
             return 0;
         }
 
-        PlayerData.SavedLocation loc = data.getBackStack().pop();
         TeleportManager.requestTeleport(player, loc, false);
         return 1;
     }

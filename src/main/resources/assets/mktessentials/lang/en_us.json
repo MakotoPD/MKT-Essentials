@@ -1,13 +1,5 @@
 {
-  "itemGroup.mktessentials": "Example Mod Tab",
-  "block.mktessentials.example_block": "Example Block",
-  "item.mktessentials.example_item": "Example Item",
-
   "mktessentials.configuration.title": "MKT Essentials Configs",
   "mktessentials.configuration.section.mktessentials.common.toml": "MKT Essentials Configs",
-  "mktessentials.configuration.section.mktessentials.common.toml.title": "MKT Essentials Configs",
-  "mktessentials.configuration.items": "Item List",
-  "mktessentials.configuration.logDirtBlock": "Log Dirt Block",
-  "mktessentials.configuration.magicNumberIntroduction": "Magic Number Text",
-  "mktessentials.configuration.magicNumber": "Magic Number"
+  "mktessentials.configuration.section.mktessentials.common.toml.title": "MKT Essentials Configs"
 }

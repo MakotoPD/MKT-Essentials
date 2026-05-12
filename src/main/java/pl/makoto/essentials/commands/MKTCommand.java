@@ -4,16 +4,45 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.config.ModConfig;
+import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
 
 public class MKTCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("mkt")
+            .executes(context -> help(context.getSource()))
+            .then(Commands.literal("help")
+                .executes(context -> help(context.getSource())))
             .then(Commands.literal("permissions")
                 .requires(s -> Permissions.hasPermission(s, "mktessentials.admin.permissions", 2))
                 .executes(context -> listPermissions(context.getSource())))
+            .then(Commands.literal("reload")
+                .requires(s -> Permissions.hasPermission(s, "mktessentials.admin.reload", 3))
+                .executes(context -> reload(context.getSource())))
         );
+
+        dispatcher.register(Commands.literal("essentials")
+            .executes(context -> help(context.getSource())));
+    }
+
+    private static int help(CommandSourceStack source) {
+        source.sendSuccess(() -> MessageUtils.format("&8&m       &r &6&lMKT Essentials &8&m       "), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/home, /sethome, /delhome, /listhomes &7- Home system"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/warp, /setwarp, /delwarp, /listwarps &7- Warp system"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/tpa, /tpahere, /tpaccept, /tpdeny &7- Teleport requests"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/spawn, /back, /rtp, /top &7- General teleportation"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/msg, /reply, /socialspy, /broadcast &7- Messaging"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/heal, /feed, /fly, /god, /vanish, /speed &7- Admin tools"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/mute, /unmute, /clearinv &7- Moderation"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/nick, /hat, /ping, /kickme &7- Misc"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/recording, /streaming &7- Status"), false);
+        source.sendSuccess(() -> MessageUtils.format("&e/day, /night, /sun, /rain &7- Time & Weather"), false);
+        source.sendSuccess(() -> MessageUtils.format("&8&m                             "), false);
+        return 1;
     }
 
     private static int listPermissions(CommandSourceStack source) {
@@ -57,6 +86,22 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.kickme"), false);
         source.sendSuccess(() -> MessageUtils.format("&8&m                                           "), false);
         
+        return 1;
+    }
+
+    private static int reload(CommandSourceStack source) {
+        try {
+            ModList.get().getModContainerById(MKTEssentials.MODID).ifPresent(container -> {
+                container.getConfig(ModConfig.Type.COMMON).ifPresent(config -> {
+                    config.getSpec().afterReload();
+                });
+            });
+            source.sendSuccess(() -> MessageUtils.prefixed("&aConfiguration reloaded successfully!"), true);
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.error("Failed to reload config", e);
+            source.sendFailure(MessageUtils.prefixed("&cFailed to reload configuration. Check console for details."));
+            return 0;
+        }
         return 1;
     }
 }

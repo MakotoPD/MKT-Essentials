@@ -124,9 +124,14 @@ public class MessagingCommands {
     }
 
     private static int broadcast(CommandSourceStack source, String message) {
-        Component broadcast = MessageUtils.format("&c&l[Broadcast] &f" + message);
+        Component broadcast = MessageUtils.formatBypass("&c&l[Broadcast] &f" + message);
 
         source.getServer().getPlayerList().broadcastSystemMessage(broadcast, false);
         return 1;
+    }
+
+    public static void cleanupPlayer(UUID uuid) {
+        lastMessaged.remove(uuid);
+        socialSpy.remove(uuid);
     }
 }

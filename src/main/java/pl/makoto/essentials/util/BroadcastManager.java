@@ -34,7 +34,7 @@ public class BroadcastManager {
 
         String msg = messages.get(RANDOM.nextInt(messages.size()));
         server.getPlayerList().broadcastSystemMessage(
-            MessageUtils.prefixed(msg), false
+            MessageUtils.formatBypass(Config.BROADCAST_PREFIX.get() + msg), false
         );
     }
 }

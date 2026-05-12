@@ -70,16 +70,16 @@ public class DataManager {
 
     private static void loadWarps() {
         Path warpsFile = dataDir.resolve("warps.json");
-        if (Files.exists(warpsFile)) {
-            try (Reader reader = Files.newBufferedReader(warpsFile)) {
-                // Simplified warp loading
-                Map<String, PlayerData.SavedLocation> loaded = GSON.fromJson(reader, Map.class);
-                if (loaded != null) {
-                    // Need to handle type conversion properly for warps
-                }
-            } catch (IOException e) {
-                MKTEssentials.LOGGER.error("Failed to load warps", e);
+        if (!Files.exists(warpsFile)) return;
+        try (Reader reader = Files.newBufferedReader(warpsFile)) {
+            java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<Map<String, PlayerData.SavedLocation>>(){}.getType();
+            Map<String, PlayerData.SavedLocation> loaded = GSON.fromJson(reader, type);
+            if (loaded != null) {
+                warps = loaded;
             }
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.error("Failed to load warps", e);
+            warps = new HashMap<>();
         }
     }
     

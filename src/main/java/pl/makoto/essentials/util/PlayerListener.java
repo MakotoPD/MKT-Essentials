@@ -6,6 +6,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import pl.makoto.essentials.Config;
 import pl.makoto.essentials.MKTEssentials;
+import pl.makoto.essentials.commands.MessagingCommands;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
 
@@ -51,6 +52,10 @@ public class PlayerListener {
 
         READY_PLAYERS.remove(player.getUUID());
 
+        // Clean up player-specific state to prevent memory leaks
+        MessagingCommands.cleanupPlayer(player.getUUID());
+        TpaManager.cleanupPlayer(player.getUUID());
+
         if (Config.JOIN_QUIT_MESSAGES.get()) {
             if (AdminManager.isVanished(player.getUUID())) return;
 
@@ -90,11 +95,44 @@ public class PlayerListener {
     @SubscribeEvent
     public static void onChat(ServerChatEvent event) {
         ServerPlayer player = event.getPlayer();
-        
+
+        // Mute check: prevent muted players from chatting
+        PlayerData playerData = DataManager.getPlayerData(player.getUUID());
+        long muteExpiration = playerData.getMuteExpiration();
+
+        if (muteExpiration == -1) {
+            // Permanently muted
+            event.setCanceled(true);
+            player.sendSystemMessage(MessageUtils.prefixed("&cYou are permanently muted."));
+            return;
+        } else if (muteExpiration > 0) {
+            long now = System.currentTimeMillis();
+            if (muteExpiration > now) {
+                // Timed mute still active
+                event.setCanceled(true);
+                String remaining = formatRemainingTime(muteExpiration - now);
+                player.sendSystemMessage(MessageUtils.prefixed("&cYou are muted for " + remaining + "."));
+                return;
+            } else {
+                // Timed mute has expired, clear it
+                playerData.setMuteExpiration(0);
+                DataManager.savePlayerData(player.getUUID());
+            }
+        }
+        // muteExpiration == 0: not muted, continue normally
+
         // Cancel original message to remove <PlayerName> brackets
         event.setCanceled(true);
 
-        Component finalMsg = MessageUtils.format(player, Config.CHAT_FORMAT.get().replace("{message}", "")).append(event.getMessage());
+        // Format the chat prefix (player name, rank, etc.) using placeholders
+        Component prefix = MessageUtils.format(player, Config.CHAT_FORMAT.get().replace("{message}", ""));
+
+        // Format the player's message content with permission-based MiniMessage/legacy code filtering
+        String messageText = event.getMessage().getString();
+        Component formattedMessage = MessageUtils.formatWithPermissions(player, messageText);
+
+        // Combine prefix and formatted message
+        Component finalMsg = prefix.copy().append(formattedMessage);
         
         // Broadcast to all players
         player.getServer().getPlayerList().broadcastSystemMessage(finalMsg, false);
@@ -130,5 +168,22 @@ public class PlayerListener {
             // but for full tab removal we need custom packet handling.
             // For now, we'll ensure the name is updated and invisibility is set.
         }
+    }
+
+    private static String formatRemainingTime(long millis) {
+        long seconds = millis / 1000;
+        long days = seconds / 86400;
+        seconds %= 86400;
+        long hours = seconds / 3600;
+        seconds %= 3600;
+        long minutes = seconds / 60;
+        seconds %= 60;
+
+        StringBuilder sb = new StringBuilder();
+        if (days > 0) sb.append(days).append("d ");
+        if (hours > 0) sb.append(hours).append("h ");
+        if (minutes > 0) sb.append(minutes).append("m ");
+        if (seconds > 0 || sb.isEmpty()) sb.append(seconds).append("s");
+        return sb.toString().trim();
     }
 }

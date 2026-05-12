@@ -51,7 +51,6 @@ public class MKTEssentials {
         MKTCommand.register(dispatcher);
         MuteCommands.register(dispatcher);
         MiscCommands.register(dispatcher);
-        HelpCommand.register(dispatcher);
         TimeWeatherCommands.register(dispatcher);
     }
 

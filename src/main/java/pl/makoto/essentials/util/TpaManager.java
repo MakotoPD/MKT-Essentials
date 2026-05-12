@@ -25,5 +25,10 @@ public class TpaManager {
         requests.remove(targetUuid);
     }
 
+    public static void cleanupPlayer(UUID uuid) {
+        requests.remove(uuid);
+        requests.entrySet().removeIf(e -> e.getValue().senderUuid().equals(uuid));
+    }
+
     public static record TpaRequest(UUID senderUuid, boolean here, long timestamp) {}
 }

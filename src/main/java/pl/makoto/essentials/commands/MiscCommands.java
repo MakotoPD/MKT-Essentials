@@ -7,11 +7,14 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
+import pl.makoto.essentials.util.LegacyCodeConverter;
 import pl.makoto.essentials.util.MessageUtils;
+import pl.makoto.essentials.util.PermissionFilter;
 import pl.makoto.essentials.util.PlayerListener;
 import pl.makoto.essentials.util.Permissions;
 
@@ -68,13 +71,16 @@ public class MiscCommands {
         ServerPlayer player = source.getPlayer();
         if (player == null) return 0;
 
-        ItemStack hand = player.getMainHandItem();
+        ItemStack hand = player.getItemInHand(InteractionHand.MAIN_HAND);
         ItemStack head = player.getItemBySlot(EquipmentSlot.HEAD);
 
-        if (hand.isEmpty() && head.isEmpty()) return 0;
+        if (hand.isEmpty() && head.isEmpty()) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&cYou must be holding an item or wearing a helmet!"), false);
+            return 0;
+        }
 
         player.setItemSlot(EquipmentSlot.HEAD, hand.copy());
-        player.setItemInHand(player.getUsedItemHand(), head.copy());
+        player.setItemInHand(InteractionHand.MAIN_HAND, head.copy());
         
         source.sendSuccess(() -> MessageUtils.prefixed("&aEnjoy your new hat!"), true);
         return 1;
@@ -102,16 +108,24 @@ public class MiscCommands {
 
         PlayerData data = DataManager.getPlayerData(target.getUUID());
         String normalized = normalizeNickname(nickname);
-        data.setNickname(normalized);
+
+        // Apply formatting pipeline: convert legacy codes and filter by permissions
+        if (normalized != null) {
+            String converted = LegacyCodeConverter.convert(normalized);
+            normalized = PermissionFilter.filter(target, converted);
+        }
+
+        final String filteredNick = normalized;
+        data.setNickname(filteredNick);
         DataManager.savePlayerData(target.getUUID());
         PlayerListener.refreshNickname(target);
 
-        if (normalized == null) {
+        if (filteredNick == null) {
             source.sendSuccess(() -> MessageUtils.prefixed("&7Nickname reset for &6" + target.getScoreboardName() + "&7."), true);
         } else if (source.getPlayer() != null && source.getPlayer().getUUID().equals(target.getUUID())) {
-            source.sendSuccess(() -> MessageUtils.prefixed("&7Your nickname is now &r" + normalized + "&7."), true);
+            source.sendSuccess(() -> MessageUtils.prefixed("&7Your nickname is now &r" + filteredNick + "&7."), true);
         } else {
-            source.sendSuccess(() -> MessageUtils.prefixed("&7Nickname for &6" + target.getScoreboardName() + " &7is now &r" + normalized + "&7."), true);
+            source.sendSuccess(() -> MessageUtils.prefixed("&7Nickname for &6" + target.getScoreboardName() + " &7is now &r" + filteredNick + "&7."), true);
         }
         return 1;
     }

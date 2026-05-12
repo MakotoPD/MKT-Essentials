@@ -1,10 +1,10 @@
 package pl.makoto.essentials.data;
 
-import net.minecraft.core.GlobalPos;
 import net.minecraft.world.phys.Vec3;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Stack;
 import java.util.UUID;
 
 public class PlayerData {
@@ -14,7 +14,7 @@ public class PlayerData {
     private boolean streaming;
     private final Map<String, SavedLocation> homes = new HashMap<>();
     private long muteExpiration = 0; // 0 = not muted, -1 = permanent
-    private transient Stack<SavedLocation> backStack = new Stack<>();
+    private transient Deque<SavedLocation> backStack = new ArrayDeque<>();
     private final java.util.Map<String, Long> kitCooldowns = new java.util.HashMap<>();
 
     public PlayerData(UUID uuid) {
@@ -43,15 +43,30 @@ public class PlayerData {
     public Map<String, SavedLocation> getHomes() { return homes; }
     public long getMuteExpiration() { return muteExpiration; }
     public void setMuteExpiration(long expiration) { this.muteExpiration = expiration; }
-    public Stack<SavedLocation> getBackStack() { 
-        if (backStack == null) backStack = new Stack<>();
-        return backStack; 
+    public Deque<SavedLocation> getBackStack() {
+        if (backStack == null) backStack = new ArrayDeque<>();
+        return backStack;
+    }
+
+    public void pushBackLocation(SavedLocation loc) {
+        if (backStack == null) backStack = new ArrayDeque<>();
+        if (backStack.size() >= 10) {
+            backStack.removeFirst(); // Remove oldest entry
+        }
+        backStack.addLast(loc);
+    }
+
+    public SavedLocation popBackLocation() {
+        if (backStack == null || backStack.isEmpty()) return null;
+        return backStack.removeLast();
     }
 
     public static class SavedLocation {
-        public final String dimension;
-        public final double x, y, z;
-        public final float yaw, pitch;
+        public String dimension;
+        public double x, y, z;
+        public float yaw, pitch;
+
+        private SavedLocation() {} // No-arg constructor for Gson deserialization
 
         public SavedLocation(String dimension, Vec3 pos, float yaw, float pitch) {
             this.dimension = dimension;

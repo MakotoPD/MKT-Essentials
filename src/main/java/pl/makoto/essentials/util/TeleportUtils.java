@@ -17,7 +17,7 @@ public class TeleportUtils {
     public static void teleport(ServerPlayer player, PlayerData.SavedLocation loc) {
         // Save current location to back stack before teleporting
         PlayerData data = DataManager.getPlayerData(player.getUUID());
-        data.getBackStack().push(new PlayerData.SavedLocation(
+        data.pushBackLocation(new PlayerData.SavedLocation(
                 player.level().dimension().location().toString(),
                 player.position(),
                 player.getYRot(),

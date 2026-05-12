@@ -5,7 +5,6 @@ import net.neoforged.fml.ModList;
 import pl.makoto.essentials.MKTEssentials;
 
 import java.lang.reflect.Method;
-import java.util.Optional;
 import java.util.UUID;
 
 public class Permissions {
@@ -97,12 +96,20 @@ public class Permissions {
                     Method getMetaData = cachedData.getClass().getMethod("getMetaData");
                     Object metaData = getMetaData.invoke(cachedData);
                     
-                    Method getMetaValue = metaData.getClass().getMethod("getMetaValue", String.class, java.util.function.Function.class);
-                    Optional<Integer> value = (Optional<Integer>) getMetaValue.invoke(metaData, node, (java.util.function.Function<String, Integer>) Integer::parseInt);
+                    // Use getMetaValue(String) which returns a String (or null)
+                    Method getMetaValue = metaData.getClass().getMethod("getMetaValue", String.class);
+                    String value = (String) getMetaValue.invoke(metaData, node);
                     
-                    if (value.isPresent()) return value.get();
+                    if (value != null) {
+                        try {
+                            return Integer.parseInt(value);
+                        } catch (NumberFormatException e) {
+                            // Not parseable as int, fall through to default
+                        }
+                    }
                 }
             } catch (Exception e) {
+                // LuckPerms error, fall through to default
             }
         }
         return defaultValue;
