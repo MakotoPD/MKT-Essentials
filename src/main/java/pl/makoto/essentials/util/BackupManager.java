@@ -182,6 +182,9 @@ public class BackupManager {
             target.experienceProgress = 0;
             target.totalExperience = 0;
 
+            // Restore Curios items if available
+            restoreCurios(target, backup.getCurios());
+
             return true;
         } catch (Exception e) {
             MKTEssentials.LOGGER.error("Failed to restore backup for " + target.getScoreboardName(), e);
@@ -263,6 +266,10 @@ public class BackupManager {
 
         InventoryBackup backup = new InventoryBackup(timestamp, reason, note,
                 player.experienceLevel, totalItems, inventory, armor, offhand);
+
+        // Backup Curios items if available
+        backup.setCurios(serializeCurios(player));
+
         return backup;
     }
 
@@ -312,6 +319,87 @@ public class BackupManager {
      */
     public static String formatTimestamp(long timestamp) {
         return FILE_FORMAT.format(Instant.ofEpochMilli(timestamp));
+    }
+
+    // --- Curios Integration (reflection-based) ---
+
+    private static List<InventoryBackup.CuriosBackupEntry> serializeCurios(ServerPlayer player) {
+        if (!net.neoforged.fml.ModList.get().isLoaded("curios")) return null;
+
+        List<InventoryBackup.CuriosBackupEntry> entries = new ArrayList<>();
+        try {
+            Class<?> curiosApiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
+            var getCuriosInv = curiosApiClass.getMethod("getCuriosInventory", net.minecraft.world.entity.LivingEntity.class);
+            Object optionalHandler = getCuriosInv.invoke(null, player);
+
+            var isPresentMethod = optionalHandler.getClass().getMethod("isPresent");
+            if (!(boolean) isPresentMethod.invoke(optionalHandler)) return null;
+
+            var getMethod = optionalHandler.getClass().getMethod("get");
+            Object handler = getMethod.invoke(optionalHandler);
+
+            var getCuriosMethod = handler.getClass().getMethod("getCurios");
+            @SuppressWarnings("unchecked")
+            var curiosMap = (java.util.Map<String, Object>) getCuriosMethod.invoke(handler);
+
+            for (var entry : curiosMap.entrySet()) {
+                String slotType = entry.getKey();
+                Object stacksHandler = entry.getValue();
+
+                var getStacksMethod = stacksHandler.getClass().getMethod("getStacks");
+                Object dynamicHandler = getStacksMethod.invoke(stacksHandler);
+
+                var getSlotsMethod = dynamicHandler.getClass().getMethod("getSlots");
+                int slots = (int) getSlotsMethod.invoke(dynamicHandler);
+
+                for (int i = 0; i < slots; i++) {
+                    var getStackMethod = dynamicHandler.getClass().getMethod("getStackInSlot", int.class);
+                    ItemStack stack = (ItemStack) getStackMethod.invoke(dynamicHandler, i);
+                    if (!stack.isEmpty()) {
+                        entries.add(new InventoryBackup.CuriosBackupEntry(slotType, i, serializeItem(stack)));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.debug("Curios backup: Could not serialize curios items", e);
+            return null;
+        }
+        return entries.isEmpty() ? null : entries;
+    }
+
+    private static void restoreCurios(ServerPlayer player, List<InventoryBackup.CuriosBackupEntry> curios) {
+        if (curios == null || curios.isEmpty()) return;
+        if (!net.neoforged.fml.ModList.get().isLoaded("curios")) return;
+
+        try {
+            Class<?> curiosApiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
+            var getCuriosInv = curiosApiClass.getMethod("getCuriosInventory", net.minecraft.world.entity.LivingEntity.class);
+            Object optionalHandler = getCuriosInv.invoke(null, player);
+
+            var isPresentMethod = optionalHandler.getClass().getMethod("isPresent");
+            if (!(boolean) isPresentMethod.invoke(optionalHandler)) return;
+
+            var getMethod = optionalHandler.getClass().getMethod("get");
+            Object handler = getMethod.invoke(optionalHandler);
+
+            var getCuriosMethod = handler.getClass().getMethod("getCurios");
+            @SuppressWarnings("unchecked")
+            var curiosMap = (java.util.Map<String, Object>) getCuriosMethod.invoke(handler);
+
+            for (InventoryBackup.CuriosBackupEntry entry : curios) {
+                Object stacksHandler = curiosMap.get(entry.getSlotType());
+                if (stacksHandler == null) continue;
+
+                var getStacksMethod = stacksHandler.getClass().getMethod("getStacks");
+                Object dynamicHandler = getStacksMethod.invoke(stacksHandler);
+
+                ItemStack stack = deserializeItem(entry.getItemNbt());
+                var setStackMethod = dynamicHandler.getClass().getMethod("setStackInSlot", int.class, ItemStack.class);
+                setStackMethod.invoke(dynamicHandler, entry.getSlotIndex(), stack);
+            }
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.debug("Curios restore: Could not restore curios items", e);
+        }
     }
 
     /**

@@ -95,32 +95,137 @@ public class BackupListMenu extends ChestMenu {
             return;
         }
 
-        // Find the target player (must be online)
-        ServerPlayer target = viewer.getServer().getPlayerList().getPlayer(targetUuid);
-        if (target == null) {
-            viewer.sendSystemMessage(MessageUtils.prefixed("&cTarget player is not online."));
+        // LEFT CLICK = Preview backup contents in a read-only chest GUI
+        if (button == 0) {
+            viewer.closeContainer();
+            // Open a read-only chest showing the backup contents
+            openBackupPreview(viewer, backup, info);
             return;
         }
 
-        // Restore the backup
-        boolean success = BackupManager.restoreBackup(target, backup);
-        if (success) {
-            viewer.sendSystemMessage(MessageUtils.prefixed(
-                    "&aRestored backup from &6" + BackupManager.formatTimestamp(info.timestamp()) + " &ato &6" + targetName + "&a."));
-            target.sendSystemMessage(MessageUtils.prefixed(
-                    "&aYour inventory has been restored from a backup by &6" + viewer.getScoreboardName() + "&a."));
-        } else {
-            viewer.sendSystemMessage(MessageUtils.prefixed("&cFailed to restore backup."));
-        }
+        // RIGHT CLICK = Restore backup to target
+        if (button == 1) {
+            ServerPlayer target = viewer.getServer().getPlayerList().getPlayer(targetUuid);
+            if (target == null) {
+                viewer.sendSystemMessage(MessageUtils.prefixed("&cTarget player is not online."));
+                return;
+            }
 
-        // Close the menu
-        viewer.closeContainer();
+            boolean success = BackupManager.restoreBackup(target, backup);
+            if (success) {
+                viewer.sendSystemMessage(MessageUtils.prefixed(
+                        "&aRestored backup from &6" + BackupManager.formatTimestamp(info.timestamp()) + " &ato &6" + targetName + "&a."));
+                target.sendSystemMessage(MessageUtils.prefixed(
+                        "&aYour inventory has been restored from a backup by &6" + viewer.getScoreboardName() + "&a."));
+            } else {
+                viewer.sendSystemMessage(MessageUtils.prefixed("&cFailed to restore backup."));
+            }
+
+            viewer.closeContainer();
+            return;
+        }
     }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         // Prevent shift-clicking
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Opens a read-only chest GUI showing the backup contents.
+     * Items cannot be taken out — it's just a preview.
+     */
+    private static void openBackupPreview(ServerPlayer viewer, InventoryBackup backup, BackupManager.BackupInfo info) {
+        // Use 6-row chest (54 slots): 36 inv + 4 armor + 1 offhand + curios + padding
+        int size = 54;
+        SimpleContainer container = new SimpleContainer(size);
+        net.minecraft.server.MinecraftServer server = viewer.getServer();
+
+        // Deserialize inventory items (slots 0-35)
+        List<String> inv = backup.getInventory();
+        if (inv != null) {
+            for (int i = 0; i < Math.min(inv.size(), 36); i++) {
+                String nbt = inv.get(i);
+                if (nbt != null && !nbt.isEmpty()) {
+                    try {
+                        net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(nbt);
+                        ItemStack stack = ItemStack.parse(server.registryAccess(), tag).orElse(ItemStack.EMPTY);
+                        container.setItem(i, stack);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Deserialize armor (slots 36-39)
+        List<String> armor = backup.getArmor();
+        if (armor != null) {
+            for (int i = 0; i < Math.min(armor.size(), 4); i++) {
+                String nbt = armor.get(i);
+                if (nbt != null && !nbt.isEmpty()) {
+                    try {
+                        net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(nbt);
+                        ItemStack stack = ItemStack.parse(server.registryAccess(), tag).orElse(ItemStack.EMPTY);
+                        container.setItem(36 + i, stack);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Deserialize offhand (slot 40)
+        String offhand = backup.getOffhand();
+        if (offhand != null && !offhand.isEmpty()) {
+            try {
+                net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(offhand);
+                ItemStack stack = ItemStack.parse(server.registryAccess(), tag).orElse(ItemStack.EMPTY);
+                container.setItem(40, stack);
+            } catch (Exception ignored) {}
+        }
+
+        // Deserialize Curios items (slots 41+)
+        List<InventoryBackup.CuriosBackupEntry> curios = backup.getCurios();
+        int curiosSlot = 41;
+        if (curios != null) {
+            for (InventoryBackup.CuriosBackupEntry entry : curios) {
+                if (curiosSlot >= size) break;
+                String nbt = entry.getItemNbt();
+                if (nbt != null && !nbt.isEmpty()) {
+                    try {
+                        net.minecraft.nbt.CompoundTag tag = net.minecraft.nbt.TagParser.parseTag(nbt);
+                        ItemStack stack = ItemStack.parse(server.registryAccess(), tag).orElse(ItemStack.EMPTY);
+                        container.setItem(curiosSlot, stack);
+                        curiosSlot++;
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Fill remaining padding slots with glass panes
+        ItemStack pane = new ItemStack(Items.BLACK_STAINED_GLASS_PANE);
+        pane.set(DataComponents.CUSTOM_NAME, Component.empty());
+        for (int i = curiosSlot; i < size; i++) {
+            if (container.getItem(i).isEmpty()) {
+                container.setItem(i, pane.copy());
+            }
+        }
+
+        String title = "Backup Preview: " + BackupManager.formatTimestamp(info.timestamp());
+
+        viewer.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, player) -> new net.minecraft.world.inventory.ChestMenu(
+                        net.minecraft.world.inventory.MenuType.GENERIC_9x6, containerId, playerInventory, container, 6) {
+                    @Override
+                    public void clicked(int slotId, int button, ClickType clickType, Player p) {
+                        // Read-only — prevent all interaction
+                    }
+
+                    @Override
+                    public ItemStack quickMoveStack(Player p, int index) {
+                        return ItemStack.EMPTY;
+                    }
+                },
+                Component.literal(title)
+        ));
     }
 
     /**
@@ -166,7 +271,8 @@ public class BackupListMenu extends ChestMenu {
         }
 
         loreLines.add(Component.empty());
-        loreLines.add(Component.literal("\u00a7eClick to restore this backup"));
+        loreLines.add(Component.literal("\u00a7e\u25b6 Left-click to preview"));
+        loreLines.add(Component.literal("\u00a7c\u25b6 Right-click to restore"));
 
         stack.set(DataComponents.LORE, new ItemLore(loreLines));
 

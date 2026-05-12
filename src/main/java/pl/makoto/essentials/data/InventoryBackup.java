@@ -17,6 +17,24 @@ public class InventoryBackup {
     private List<String> inventory; // NBT-serialized ItemStacks as JSON strings (36 slots)
     private List<String> armor;     // 4 items
     private String offhand;         // 1 item
+    private List<CuriosBackupEntry> curios; // Curios items (slot type + index + NBT)
+
+    public static class CuriosBackupEntry {
+        private String slotType;
+        private int slotIndex;
+        private String itemNbt;
+
+        public CuriosBackupEntry() {}
+        public CuriosBackupEntry(String slotType, int slotIndex, String itemNbt) {
+            this.slotType = slotType;
+            this.slotIndex = slotIndex;
+            this.itemNbt = itemNbt;
+        }
+
+        public String getSlotType() { return slotType; }
+        public int getSlotIndex() { return slotIndex; }
+        public String getItemNbt() { return itemNbt; }
+    }
 
     public InventoryBackup() {}
 
@@ -68,4 +86,7 @@ public class InventoryBackup {
 
     public String getOffhand() { return offhand; }
     public void setOffhand(String offhand) { this.offhand = offhand; }
+
+    public List<CuriosBackupEntry> getCurios() { return curios; }
+    public void setCurios(List<CuriosBackupEntry> curios) { this.curios = curios; }
 }

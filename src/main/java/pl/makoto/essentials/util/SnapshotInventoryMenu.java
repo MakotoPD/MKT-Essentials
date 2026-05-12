@@ -122,8 +122,12 @@ public class SnapshotInventoryMenu extends ChestMenu {
             container.setItem(curiosStartSlot + i, curiosItems.get(i).item().copy());
         }
 
-        // Fill all remaining empty slots with black glass panes
-        fillEmptyWithPanes(container, 0, containerSize, fillerSlots);
+        // Fill ONLY padding slots (after curios) with black glass panes
+        // Slots 0-40 = vanilla inventory (can be empty — that's fine)
+        // Slots 41 to 41+displayedCurios = curios items
+        // Slots after curios to 53 = padding (fill with panes)
+        int paddingStart = curiosStartSlot + displayedCurios;
+        fillEmptyWithPanes(container, paddingStart, containerSize, fillerSlots);
 
         // Build title
         String title;
@@ -160,8 +164,7 @@ public class SnapshotInventoryMenu extends ChestMenu {
             container.setItem(i, target.getEnderChestInventory().getItem(i).copy());
         }
 
-        // Fill remaining empty slots with panes (ender chest is always 27 slots)
-        fillEmptyWithPanes(container, 0, ENDER_CHEST_SLOTS, fillerSlots);
+        // Ender chest has exactly 27 slots — no padding needed, empty slots are valid
 
         final Set<Integer> finalFillerSlots = fillerSlots;
         viewer.openMenu(new SimpleMenuProvider(
@@ -242,7 +245,7 @@ public class SnapshotInventoryMenu extends ChestMenu {
             }
         }
 
-        fillEmptyWithPanes(container, 0, ENDER_CHEST_SLOTS, fillerSlots);
+        // No panes for ender chest — all 27 slots are valid
 
         final Set<Integer> finalFillerSlots = fillerSlots;
         final CompoundTag finalPlayerData = playerData;
