@@ -71,7 +71,11 @@ public class MKTEssentials {
         BackupManager.init(server);
         LuckPermsHook.init();
         Permissions.init();
-        MKTPlaceholders.register();
+        try {
+            MKTPlaceholders.register();
+        } catch (NoClassDefFoundError e) {
+            LOGGER.info("Text Placeholder API not found — placeholders disabled.");
+        }
     }
 
     @SubscribeEvent

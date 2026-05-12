@@ -21,8 +21,13 @@ public class MessageUtils {
 
     public static MutableComponent format(ServerPlayer player, String text) {
         if (player == null) return format(text);
-        Component parsed = Placeholders.parseText(normalizeLegacyPlaceholders(text), ServerPlaceholderContext.of(player));
-        return format(parsed.getString());
+        try {
+            Component parsed = Placeholders.parseText(normalizeLegacyPlaceholders(text), ServerPlaceholderContext.of(player));
+            return format(parsed.getString());
+        } catch (NoClassDefFoundError e) {
+            // PlaceholderAPI not available — format without placeholders
+            return format(text);
+        }
     }
 
     /**
