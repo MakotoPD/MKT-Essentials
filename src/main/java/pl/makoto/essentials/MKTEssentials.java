@@ -11,6 +11,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.config.ModConfig;
 
+import pl.makoto.essentials.util.LuckPermsHook;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.commands.*;
@@ -59,6 +60,8 @@ public class MKTEssentials {
         LOGGER.info("MKT Essentials starting...");
         server = event.getServer();
         DataManager.init(server);
+        LuckPermsHook.init();
+        Permissions.init();
         MKTPlaceholders.register();
         TABHook.init();
     }

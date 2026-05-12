@@ -14,6 +14,9 @@ public class PlayerData {
     private boolean streaming;
     private final Map<String, SavedLocation> homes = new HashMap<>();
     private long muteExpiration = 0; // 0 = not muted, -1 = permanent
+    private boolean godMode = false;
+    private boolean flyEnabled = false;
+    private boolean vanished = false;
     private transient Deque<SavedLocation> backStack = new ArrayDeque<>();
     private final java.util.Map<String, Long> kitCooldowns = new java.util.HashMap<>();
 
@@ -43,6 +46,15 @@ public class PlayerData {
     public Map<String, SavedLocation> getHomes() { return homes; }
     public long getMuteExpiration() { return muteExpiration; }
     public void setMuteExpiration(long expiration) { this.muteExpiration = expiration; }
+
+    public boolean isGodMode() { return godMode; }
+    public void setGodMode(boolean godMode) { this.godMode = godMode; }
+
+    public boolean isFlyEnabled() { return flyEnabled; }
+    public void setFlyEnabled(boolean flyEnabled) { this.flyEnabled = flyEnabled; }
+
+    public boolean isVanished() { return vanished; }
+    public void setVanished(boolean vanished) { this.vanished = vanished; }
     public Deque<SavedLocation> getBackStack() {
         if (backStack == null) backStack = new ArrayDeque<>();
         return backStack;

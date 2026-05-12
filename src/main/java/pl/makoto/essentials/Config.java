@@ -34,6 +34,10 @@ public class Config {
     public static final ModConfigSpec.IntValue BROADCAST_INTERVAL;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BROADCAST_MESSAGES;
     public static final ModConfigSpec.ConfigValue<String> BROADCAST_PREFIX;
+    public static final ModConfigSpec.ConfigValue<String> BROADCAST_ORDER;
+
+    // --- DATA ---
+    public static final ModConfigSpec.IntValue AUTO_SAVE_INTERVAL;
 
     // --- ADMIN FEATURES ---
     public static final ModConfigSpec.BooleanValue VANISH_FAKE_MESSAGES;
@@ -127,6 +131,16 @@ public class Config {
         BROADCAST_PREFIX = BUILDER
                 .comment("Prefix for broadcast messages")
                 .define("broadcastPrefix", "&8[&bINFO&8] &r");
+
+        BROADCAST_ORDER = BUILDER
+                .comment("Order of broadcast messages: 'random' or 'sequential'")
+                .define("broadcastOrder", "random");
+        BUILDER.pop();
+
+        BUILDER.push("Data");
+        AUTO_SAVE_INTERVAL = BUILDER
+                .comment("Interval in seconds between automatic player data saves (0 to disable)")
+                .defineInRange("autoSaveInterval", 300, 0, 3600);
         BUILDER.pop();
 
         BUILDER.push("Admin_Features");

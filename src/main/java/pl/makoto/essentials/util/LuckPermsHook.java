@@ -1,70 +1,61 @@
 package pl.makoto.essentials.util;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.cacheddata.CachedMetaData;
+import net.luckperms.api.model.user.User;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
-import java.lang.reflect.Method;
-import java.util.UUID;
 
 public class LuckPermsHook {
-    private static Boolean isPresent = null;
-    private static Object luckPermsApi = null;
-    private static Method getUserMethod = null;
+    private static boolean available = false;
+    private static LuckPerms api = null;
 
-    private static void ensureApi() {
-        if (isPresent != null) return;
-        
-        isPresent = ModList.get().isLoaded("luckperms");
-        if (isPresent) {
-            try {
-                Class<?> providerClass = Class.forName("net.luckperms.api.LuckPermsProvider");
-                Method getMethod = providerClass.getMethod("get");
-                luckPermsApi = getMethod.invoke(null);
-                
-                getUserMethod = luckPermsApi.getClass().getMethod("getUserManager");
-            } catch (Exception e) {
-                isPresent = false;
-            }
+    public static void init() {
+        try {
+            api = LuckPermsProvider.get();
+            available = true;
+        } catch (NoClassDefFoundError | IllegalStateException e) {
+            available = false;
         }
     }
 
     public static String getPrefix(ServerPlayer player) {
-        ensureApi();
-        if (!isPresent || player == null) return "";
-        return getMetaData(player, "getPrefix");
+        if (!available || player == null) return "";
+        try {
+            User user = api.getUserManager().getUser(player.getUUID());
+            if (user == null) return "";
+            CachedMetaData metaData = user.getCachedData().getMetaData();
+            String prefix = metaData.getPrefix();
+            return prefix != null ? prefix : "";
+        } catch (NoClassDefFoundError e) {
+            available = false;
+            return "";
+        }
     }
 
     public static String getSuffix(ServerPlayer player) {
-        ensureApi();
-        if (!isPresent || player == null) return "";
-        return getMetaData(player, "getSuffix");
+        if (!available || player == null) return "";
+        try {
+            User user = api.getUserManager().getUser(player.getUUID());
+            if (user == null) return "";
+            CachedMetaData metaData = user.getCachedData().getMetaData();
+            String suffix = metaData.getSuffix();
+            return suffix != null ? suffix : "";
+        } catch (NoClassDefFoundError e) {
+            available = false;
+            return "";
+        }
     }
 
-    private static String getMetaData(ServerPlayer player, String methodName) {
+    public static String getPrimaryGroup(ServerPlayer player) {
+        if (!available || player == null) return null;
         try {
-            // Get UserManager
-            Object userManager = getUserMethod.invoke(luckPermsApi);
-            
-            // Get User
-            Method getUser = userManager.getClass().getMethod("getUser", UUID.class);
-            Object user = getUser.invoke(userManager, player.getUUID());
-            
-            if (user == null) return "";
-            
-            // Get CachedData
-            Method getCachedData = user.getClass().getMethod("getCachedData");
-            Object cachedData = getCachedData.invoke(user);
-            
-            // Get MetaData
-            Method getMetaData = cachedData.getClass().getMethod("getMetaData");
-            Object metaData = getMetaData.invoke(cachedData);
-            
-            // Get value (getPrefix or getSuffix)
-            Method getValue = metaData.getClass().getMethod(methodName);
-            Object value = getValue.invoke(metaData);
-            
-            return value != null ? (String) value : "";
-        } catch (Exception e) {
-            return "";
+            User user = api.getUserManager().getUser(player.getUUID());
+            if (user == null) return null;
+            return user.getPrimaryGroup();
+        } catch (NoClassDefFoundError e) {
+            available = false;
+            return null;
         }
     }
 }

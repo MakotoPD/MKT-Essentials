@@ -12,6 +12,8 @@ import pl.makoto.essentials.data.PlayerData;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.MessageUtils;
 
+import java.util.UUID;
+
 public class MuteCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("mute")
@@ -19,7 +21,11 @@ public class MuteCommands {
                 .then(Commands.argument("player", EntityArgument.player())
                         .then(Commands.argument("until", StringArgumentType.string())
                                 .executes(context -> mute(context.getSource(), EntityArgument.getPlayer(context, "player"), StringArgumentType.getString(context, "until"))))
-                        .executes(context -> mute(context.getSource(), EntityArgument.getPlayer(context, "player"), "forever"))));
+                        .executes(context -> mute(context.getSource(), EntityArgument.getPlayer(context, "player"), "forever")))
+                .then(Commands.argument("offlinePlayer", StringArgumentType.word())
+                        .then(Commands.argument("until", StringArgumentType.string())
+                                .executes(context -> muteOffline(context.getSource(), StringArgumentType.getString(context, "offlinePlayer"), StringArgumentType.getString(context, "until"))))
+                        .executes(context -> muteOffline(context.getSource(), StringArgumentType.getString(context, "offlinePlayer"), "forever"))));
 
         dispatcher.register(Commands.literal("unmute")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.unmute", 2))
@@ -49,6 +55,33 @@ public class MuteCommands {
         String timeStr = until.equalsIgnoreCase("forever") ? "forever" : "until " + until;
         source.sendSuccess(() -> MessageUtils.prefixed("&7Muted &6" + target.getScoreboardName() + " &7" + timeStr + "."), true);
         target.sendSystemMessage(MessageUtils.prefixed("&cYou have been muted " + timeStr + "."));
+        return 1;
+    }
+
+    private static int muteOffline(CommandSourceStack source, String playerName, String until) {
+        UUID uuid = DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed("&cPlayer not found."));
+            return 0;
+        }
+
+        long expiration = -1;
+        if (!until.equalsIgnoreCase("forever")) {
+            try {
+                long duration = parseDuration(until);
+                expiration = System.currentTimeMillis() + duration;
+            } catch (Exception e) {
+                source.sendFailure(MessageUtils.prefixed("&cInvalid duration format! Use e.g. 2h, 1d."));
+                return 0;
+            }
+        }
+
+        PlayerData data = DataManager.getPlayerData(uuid);
+        data.setMuteExpiration(expiration);
+        DataManager.savePlayerData(uuid);
+
+        String timeStr = until.equalsIgnoreCase("forever") ? "forever" : "until " + until;
+        source.sendSuccess(() -> MessageUtils.prefixed("&7Muted &6" + playerName + " &7" + timeStr + " (offline)."), true);
         return 1;
     }
 

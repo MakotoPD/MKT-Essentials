@@ -4,6 +4,8 @@ import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import pl.makoto.essentials.data.DataManager;
+import pl.makoto.essentials.data.PlayerData;
 
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +24,7 @@ public class AdminManager {
 
     /**
      * Toggles vanish for the given player.
+     * Also persists the vanish state to PlayerData.
      *
      * @return true if the player is now vanished, false if unvanished
      */
@@ -34,14 +37,20 @@ public class AdminManager {
             vanished.remove(uuid);
             player.setInvisible(false);
             showInTabList(player);
-            return false;
         } else {
             // Vanish
             vanished.add(uuid);
             player.setInvisible(true);
             hideFromTabList(player);
-            return true;
         }
+
+        // Persist vanish state to PlayerData
+        boolean nowVanished = vanished.contains(uuid);
+        PlayerData data = DataManager.getPlayerData(uuid);
+        data.setVanished(nowVanished);
+        DataManager.savePlayerData(uuid);
+
+        return nowVanished;
     }
 
     public static boolean isVanished(UUID uuid) {
@@ -115,8 +124,24 @@ public class AdminManager {
 
     /**
      * Cleans up vanish state when a player disconnects.
+     * Note: The vanished set entry is NOT removed here because vanish persists across reconnects.
+     * The in-memory set is kept so that hideVanishedFromJoiningPlayer() still works if the
+     * vanished player reconnects before the server restarts.
      */
     public static void cleanupOnDisconnect(UUID uuid) {
-        vanished.remove(uuid);
+        // No longer removing from vanished set — persistence handles vanish state.
+        // The in-memory set will be repopulated via restoreVanish() on login.
+    }
+
+    /**
+     * Restores vanish state for a player on login.
+     * Called when PlayerData indicates the player was vanished.
+     * Adds to the in-memory vanished set, sets invisible, and hides from tab list.
+     */
+    public static void restoreVanish(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        vanished.add(uuid);
+        player.setInvisible(true);
+        hideFromTabList(player);
     }
 }

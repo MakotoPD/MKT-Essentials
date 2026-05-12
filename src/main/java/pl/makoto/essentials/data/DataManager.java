@@ -4,6 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import pl.makoto.essentials.Config;
 import pl.makoto.essentials.MKTEssentials;
 
 import java.io.*;
@@ -11,8 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
+@EventBusSubscriber(modid = MKTEssentials.MODID)
 public class DataManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Path dataDir;
@@ -22,6 +28,9 @@ public class DataManager {
     private static Map<String, PlayerData.SavedLocation> warps = new HashMap<>();
     private static final Map<String, KitData> kitCache = new HashMap<>();
     private static MinecraftServer server;
+
+    // Auto-save tick counter
+    private static long lastSaveTick = 0;
 
     public static void init(MinecraftServer server) {
         DataManager.server = server;
@@ -65,6 +74,29 @@ public class DataManager {
             GSON.toJson(data, writer);
         } catch (IOException e) {
             MKTEssentials.LOGGER.error("Failed to save player data for " + uuid, e);
+        }
+    }
+
+    public static void evictPlayer(UUID uuid) {
+        savePlayerData(uuid);
+        playerCache.remove(uuid);
+    }
+
+    public static void saveAll() {
+        for (UUID uuid : playerCache.keySet()) {
+            savePlayerData(uuid);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        int interval = Config.AUTO_SAVE_INTERVAL.get();
+        if (interval <= 0) return;
+
+        lastSaveTick++;
+        if (lastSaveTick >= interval * 20L) {
+            lastSaveTick = 0;
+            saveAll();
         }
     }
 
@@ -135,5 +167,11 @@ public class DataManager {
 
     public static java.util.Collection<KitData> getAllKits() {
         return kitCache.values();
+    }
+
+    // --- OFFLINE UUID RESOLUTION ---
+    public static UUID resolveOfflineUUID(String playerName, MinecraftServer server) {
+        Optional<com.mojang.authlib.GameProfile> profile = server.getProfileCache().get(playerName);
+        return profile.map(com.mojang.authlib.GameProfile::getId).orElse(null);
     }
 }

@@ -5,20 +5,19 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.MessageUtils;
+import pl.makoto.essentials.util.SnapshotInventoryMenu;
 import pl.makoto.essentials.Config;
 import pl.makoto.essentials.util.AdminManager;
-import pl.makoto.essentials.util.PlayerListener;
+import pl.makoto.essentials.data.DataManager;
+import pl.makoto.essentials.data.PlayerData;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 public class AdminCommands {
-    private static final Set<UUID> godMode = new HashSet<>();
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("heal")
@@ -57,10 +56,30 @@ public class AdminCommands {
 
         dispatcher.register(Commands.literal("speed")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.speed", 2))
-                .then(Commands.argument("speed", IntegerArgumentType.integer(0, 10))
-                        .then(Commands.argument("player", EntityArgument.player())
-                                .executes(context -> speed(context.getSource(), EntityArgument.getPlayer(context, "player"), IntegerArgumentType.getInteger(context, "speed"))))
-                        .executes(context -> speed(context.getSource(), context.getSource().getPlayer(), IntegerArgumentType.getInteger(context, "speed")))));
+                .then(Commands.literal("fly")
+                        .then(Commands.argument("value", IntegerArgumentType.integer(0, 10))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> speedFly(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), IntegerArgumentType.getInteger(ctx, "value"))))
+                                .executes(ctx -> speedFly(ctx.getSource(), ctx.getSource().getPlayer(), IntegerArgumentType.getInteger(ctx, "value")))))
+                .then(Commands.literal("walk")
+                        .then(Commands.argument("value", IntegerArgumentType.integer(0, 10))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> speedWalk(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), IntegerArgumentType.getInteger(ctx, "value"))))
+                                .executes(ctx -> speedWalk(ctx.getSource(), ctx.getSource().getPlayer(), IntegerArgumentType.getInteger(ctx, "value"))))));
+
+        dispatcher.register(Commands.literal("tpall")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.tpall", 2))
+                .executes(context -> tpall(context.getSource())));
+
+        dispatcher.register(Commands.literal("invsee")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.invsee", 2))
+                .then(Commands.argument("player", EntityArgument.player())
+                        .executes(context -> invsee(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+
+        dispatcher.register(Commands.literal("enderchest")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.enderchest", 2))
+                .then(Commands.argument("player", EntityArgument.player())
+                        .executes(context -> enderchest(context.getSource(), EntityArgument.getPlayer(context, "player")))));
     }
 
     private static int heal(CommandSourceStack source, ServerPlayer target) {
@@ -81,7 +100,12 @@ public class AdminCommands {
 
     private static int fly(CommandSourceStack source, ServerPlayer target) {
         if (target == null) return 0;
-        boolean canFly = !target.getAbilities().mayfly;
+        UUID uuid = target.getUUID();
+        PlayerData data = DataManager.getPlayerData(uuid);
+        boolean wasFly = data.isFlyEnabled();
+        data.setFlyEnabled(!wasFly);
+        DataManager.savePlayerData(uuid);
+        boolean canFly = data.isFlyEnabled();
         target.getAbilities().mayfly = canFly;
         if (!canFly) target.getAbilities().flying = false;
         target.onUpdateAbilities();
@@ -92,12 +116,14 @@ public class AdminCommands {
     private static int god(CommandSourceStack source, ServerPlayer target) {
         if (target == null) return 0;
         UUID uuid = target.getUUID();
-        if (godMode.contains(uuid)) {
-            godMode.remove(uuid);
+        PlayerData data = DataManager.getPlayerData(uuid);
+        boolean wasGod = data.isGodMode();
+        data.setGodMode(!wasGod);
+        DataManager.savePlayerData(uuid);
+        if (wasGod) {
             target.setInvulnerable(false);
             source.sendSuccess(() -> MessageUtils.prefixed("&7God mode &cdisabled &7for &6" + target.getScoreboardName() + "&7."), true);
         } else {
-            godMode.add(uuid);
             target.setInvulnerable(true);
             source.sendSuccess(() -> MessageUtils.prefixed("&7God mode &aenabled &7for &6" + target.getScoreboardName() + "&7."), true);
         }
@@ -131,18 +157,57 @@ public class AdminCommands {
         return 1;
     }
 
-    private static int speed(CommandSourceStack source, ServerPlayer target, int speedLevel) {
+    private static int speedFly(CommandSourceStack source, ServerPlayer target, int value) {
         if (target == null) return 0;
-
-        // Set only flying speed: scale 0-10, default is 1 (0.05f)
-        float finalSpeed = (float) speedLevel * 0.05f;
-        target.getAbilities().setFlyingSpeed(finalSpeed);
-
+        float speed = value * 0.05f;
+        target.getAbilities().setFlyingSpeed(speed);
         target.onUpdateAbilities();
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Flying speed set to &6" + speedLevel + " &7for &6" + target.getScoreboardName() + "&7."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed("&7Flying speed set to &6" + value + " &7for &6" + target.getScoreboardName() + "&7."), true);
+        return 1;
+    }
+
+    private static int speedWalk(CommandSourceStack source, ServerPlayer target, int value) {
+        if (target == null) return 0;
+        float speed = value * 0.05f;
+        target.getAbilities().setWalkingSpeed(speed);
+        target.onUpdateAbilities();
+        source.sendSuccess(() -> MessageUtils.prefixed("&7Walking speed set to &6" + value + " &7for &6" + target.getScoreboardName() + "&7."), true);
         return 1;
     }
     
-    public static boolean isGod(UUID uuid) { return godMode.contains(uuid); }
+    private static int tpall(CommandSourceStack source) {
+        ServerPlayer sender = source.getPlayer();
+        if (sender == null) return 0;
+
+        int count = 0;
+        for (ServerPlayer target : sender.getServer().getPlayerList().getPlayers()) {
+            if (target.getUUID().equals(sender.getUUID())) continue;
+            target.teleportTo(
+                    (ServerLevel) sender.level(),
+                    sender.getX(), sender.getY(), sender.getZ(),
+                    sender.getYRot(), sender.getXRot()
+            );
+            count++;
+        }
+        int finalCount = count;
+        source.sendSuccess(() -> MessageUtils.prefixed("&aTeleported &6" + finalCount + " &aplayers to your location."), true);
+        return 1;
+    }
+
+    private static int invsee(CommandSourceStack source, ServerPlayer target) {
+        ServerPlayer viewer = source.getPlayer();
+        if (viewer == null || target == null) return 0;
+        SnapshotInventoryMenu.openInventory(viewer, target);
+        return 1;
+    }
+
+    private static int enderchest(CommandSourceStack source, ServerPlayer target) {
+        ServerPlayer viewer = source.getPlayer();
+        if (viewer == null || target == null) return 0;
+        SnapshotInventoryMenu.openEnderChest(viewer, target);
+        return 1;
+    }
+
+    public static boolean isGod(UUID uuid) { return DataManager.getPlayerData(uuid).isGodMode(); }
     public static boolean isVanished(UUID uuid) { return AdminManager.isVanished(uuid); }
 }

@@ -11,8 +11,9 @@ import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.HoverEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 
 import net.neoforged.bus.api.EventPriority;
@@ -36,6 +37,20 @@ public class PlayerListener {
             if (player.getServer().getPlayerList().getPlayer(player.getUUID()) == null) return;
 
             READY_PLAYERS.add(player.getUUID());
+
+            // Restore persisted states from PlayerData
+            PlayerData data = DataManager.getPlayerData(player.getUUID());
+            if (data.isGodMode()) {
+                player.setInvulnerable(true);
+            }
+            if (data.isFlyEnabled()) {
+                player.getAbilities().mayfly = true;
+                player.onUpdateAbilities();
+            }
+            if (data.isVanished()) {
+                AdminManager.restoreVanish(player);
+            }
+
             refreshNickname(player);
 
             // Hide vanished players from this joining player's tab list
@@ -61,10 +76,15 @@ public class PlayerListener {
         AdminManager.cleanupOnDisconnect(player.getUUID());
 
         if (Config.JOIN_QUIT_MESSAGES.get()) {
-            if (AdminManager.isVanished(player.getUUID())) return;
+            if (AdminManager.isVanished(player.getUUID())) {
+                DataManager.evictPlayer(player.getUUID());
+                return;
+            }
 
             event.getEntity().getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Config.QUIT_MESSAGE.get()), false);
         }
+
+        DataManager.evictPlayer(player.getUUID());
     }
 
     public static String getFullDisplayNameForTab(ServerPlayer player) {
@@ -131,12 +151,26 @@ public class PlayerListener {
         // Format the chat prefix (player name, rank, etc.) using placeholders
         Component prefix = MessageUtils.format(player, Config.CHAT_FORMAT.get().replace("{message}", ""));
 
+        // Build hover text with rank, ping, and UUID
+        MutableComponent hoverText = Component.empty();
+        String rank = LuckPermsHook.getPrimaryGroup(player);
+        if (rank != null) {
+            hoverText.append(MessageUtils.format("&7Rank: &f" + rank + "\n"));
+        }
+        hoverText.append(MessageUtils.format("&7Ping: &f" + player.connection.latency() + "ms\n"));
+        hoverText.append(MessageUtils.format("&7UUID: &f" + player.getUUID().toString()));
+
+        // Attach HoverEvent to the prefix component
+        Component prefixWithHover = prefix.copy().withStyle(style ->
+            style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText))
+        );
+
         // Format the player's message content with permission-based MiniMessage/legacy code filtering
         String messageText = event.getMessage().getString();
         Component formattedMessage = MessageUtils.formatWithPermissions(player, messageText);
 
-        // Combine prefix and formatted message
-        Component finalMsg = prefix.copy().append(formattedMessage);
+        // Combine prefix (with hover) and formatted message
+        Component finalMsg = prefixWithHover.copy().append(formattedMessage);
         
         // Broadcast to all players
         player.getServer().getPlayerList().broadcastSystemMessage(finalMsg, false);

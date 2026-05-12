@@ -5,6 +5,8 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -19,8 +21,10 @@ import pl.makoto.essentials.util.TeleportManager;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
 
-import java.util.Random;
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class MiscTeleportCommands {
     private static final Random RANDOM = new Random();
@@ -78,50 +82,76 @@ public class MiscTeleportCommands {
         if (player == null) return 0;
 
         ServerLevel level = (ServerLevel) player.level();
+        MinecraftServer server = player.getServer();
+        UUID playerUuid = player.getUUID();
+        String dimensionId = level.dimension().location().toString();
+
         int min = Config.RTP_MIN_DISTANCE.get();
         int max = Config.RTP_MAX_DISTANCE.get();
-        
+
         double centerX = Config.RTP_RELATIVE.get() ? player.getX() : Config.RTP_CENTER_X.get();
         double centerZ = Config.RTP_RELATIVE.get() ? player.getZ() : Config.RTP_CENTER_Z.get();
 
         List<? extends String> blacklist = Config.RTP_BIOME_BLACKLIST.get();
-        BlockPos finalPos = null;
 
-        for (int i = 0; i < 50; i++) {
-            double x = centerX + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
-            double z = centerZ + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
-            
-            level.getChunkSource().getChunk((int)x >> 4, (int)z >> 4, ChunkStatus.FULL, true);
-            BlockPos pos = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(x, 0, z));
-            
-            if (pos.getY() <= level.getMinBuildHeight()) {
-                pos = new BlockPos((int)x, level.getLogicalHeight(), (int)z);
+        // Send "Searching..." action-bar message before starting async work
+        player.sendSystemMessage(MessageUtils.prefixed("&7Searching for a safe location..."), true);
+
+        // Offload the search loop to a CompletableFuture worker thread
+        CompletableFuture.supplyAsync(() -> {
+            // Async: generate random positions and check biomes (thread-safe biome source lookups)
+            for (int i = 0; i < 50; i++) {
+                double x = centerX + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
+                double z = centerZ + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
+
+                // Biome lookup from the chunk generator's biome source is thread-safe
+                BlockPos candidatePos = BlockPos.containing(x, 64, z);
+                String biomeId = level.getBiome(candidatePos).unwrapKey()
+                        .map(key -> key.location().toString()).orElse("unknown");
+
+                String finalBiomeId = biomeId;
+                boolean isBlacklisted = blacklist.stream().anyMatch(s -> s.trim().equalsIgnoreCase(finalBiomeId));
+
+                if (!isBlacklisted) {
+                    // Return the candidate X/Z coordinates; actual chunk loading happens on main thread
+                    return new double[]{x, z};
+                } else {
+                    MKTEssentials.LOGGER.info("RTP: Skipping blacklisted biome: {}", biomeId);
+                }
             }
+            return null; // No valid location found after 50 attempts
+        }).thenAccept(result -> {
+            // Schedule back to main thread via server.tell(new TickTask(...))
+            server.tell(new TickTask(server.getTickCount() + 1, () -> {
+                // Check if player is still online before teleporting
+                ServerPlayer p = server.getPlayerList().getPlayer(playerUuid);
+                if (p == null) return; // Player disconnected during search
 
-            // Check biome at a safe height (surface)
-            String biomeId = level.getBiome(pos).unwrapKey().map(key -> key.location().toString()).orElse("unknown");
-            
-            String finalBiomeId = biomeId;
-            boolean isBlacklisted = blacklist.stream().anyMatch(s -> s.trim().equalsIgnoreCase(finalBiomeId));
-            
-            if (!isBlacklisted) {
-                finalPos = pos;
-                break;
-            } else {
-                MKTEssentials.LOGGER.info("RTP: Skipping blacklisted biome: {}", biomeId);
-            }
-        }
+                if (result == null) {
+                    p.sendSystemMessage(MessageUtils.prefixed("&cCould not find a safe location after 50 attempts. Please try again."));
+                    return;
+                }
 
-        if (finalPos == null) {
-            source.sendFailure(MessageUtils.prefixed("&cCould not find a safe location after 50 attempts. Please try again."));
-            return 0;
-        }
+                double x = result[0];
+                double z = result[1];
 
-        TeleportManager.requestTeleport(player, new PlayerData.SavedLocation(
-                level.dimension().location().toString(),
-                new Vec3(finalPos.getX() + 0.5, finalPos.getY() + 1, finalPos.getZ() + 0.5),
-                player.getYRot(), player.getXRot()
-        ), false);
+                // Main thread: load chunk and get heightmap position (NOT thread-safe)
+                ServerLevel targetLevel = (ServerLevel) p.level();
+                targetLevel.getChunkSource().getChunk((int) x >> 4, (int) z >> 4, ChunkStatus.FULL, true);
+                BlockPos pos = targetLevel.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(x, 0, z));
+
+                if (pos.getY() <= targetLevel.getMinBuildHeight()) {
+                    pos = new BlockPos((int) x, targetLevel.getLogicalHeight(), (int) z);
+                }
+
+                TeleportManager.requestTeleport(p, new PlayerData.SavedLocation(
+                        dimensionId,
+                        new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5),
+                        p.getYRot(), p.getXRot()
+                ), false);
+            }));
+        });
+
         return 1;
     }
 

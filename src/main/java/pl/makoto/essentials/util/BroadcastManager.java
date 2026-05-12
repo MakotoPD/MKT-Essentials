@@ -13,6 +13,7 @@ import java.util.Random;
 public class BroadcastManager {
     private static final Random RANDOM = new Random();
     private static long lastBroadcastTicks = 0;
+    private static int currentIndex = 0;
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
@@ -24,15 +25,23 @@ public class BroadcastManager {
 
         if (lastBroadcastTicks >= intervalTicks) {
             lastBroadcastTicks = 0;
-            broadcastRandom(event.getServer());
+            broadcast(event.getServer());
         }
     }
 
-    private static void broadcastRandom(net.minecraft.server.MinecraftServer server) {
+    private static void broadcast(net.minecraft.server.MinecraftServer server) {
         List<? extends String> messages = Config.BROADCAST_MESSAGES.get();
         if (messages.isEmpty()) return;
 
-        String msg = messages.get(RANDOM.nextInt(messages.size()));
+        String msg;
+        if ("sequential".equalsIgnoreCase(Config.BROADCAST_ORDER.get())) {
+            if (currentIndex >= messages.size()) currentIndex = 0;
+            msg = messages.get(currentIndex);
+            currentIndex++;
+        } else {
+            msg = messages.get(RANDOM.nextInt(messages.size()));
+        }
+
         server.getPlayerList().broadcastSystemMessage(
             MessageUtils.formatBypass(Config.BROADCAST_PREFIX.get() + msg), false
         );
