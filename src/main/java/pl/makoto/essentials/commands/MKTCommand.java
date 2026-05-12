@@ -4,9 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.config.ModConfig;
+import pl.makoto.essentials.Config;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
@@ -91,11 +89,8 @@ public class MKTCommand {
 
     private static int reload(CommandSourceStack source) {
         try {
-            ModList.get().getModContainerById(MKTEssentials.MODID).ifPresent(container -> {
-                container.getConfig(ModConfig.Type.COMMON).ifPresent(config -> {
-                    config.getSpec().afterReload();
-                });
-            });
+            // Force NeoForge config spec to re-read values from the file
+            Config.SPEC.afterReload();
             source.sendSuccess(() -> MessageUtils.prefixed("&aConfiguration reloaded successfully!"), true);
         } catch (Exception e) {
             MKTEssentials.LOGGER.error("Failed to reload config", e);

@@ -38,6 +38,9 @@ public class PlayerListener {
             READY_PLAYERS.add(player.getUUID());
             refreshNickname(player);
 
+            // Hide vanished players from this joining player's tab list
+            AdminManager.hideVanishedFromJoiningPlayer(player);
+
             if (Config.JOIN_QUIT_MESSAGES.get()) {
                 if (AdminManager.isVanished(player.getUUID())) return;
 
@@ -55,6 +58,7 @@ public class PlayerListener {
         // Clean up player-specific state to prevent memory leaks
         MessagingCommands.cleanupPlayer(player.getUUID());
         TpaManager.cleanupPlayer(player.getUUID());
+        AdminManager.cleanupOnDisconnect(player.getUUID());
 
         if (Config.JOIN_QUIT_MESSAGES.get()) {
             if (AdminManager.isVanished(player.getUUID())) return;
@@ -157,16 +161,9 @@ public class PlayerListener {
             new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME, player)
         );
 
-        // Handle Vanish Tab visibility
-        boolean vanished = AdminManager.isVanished(player.getUUID());
-        if (vanished) {
-            // Remove from tab for everyone except admins
-            ClientboundPlayerInfoUpdatePacket removePacket = new ClientboundPlayerInfoUpdatePacket(
-                java.util.EnumSet.of(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED), java.util.List.of(player)
-            );
-            // This is a bit complex in NeoForge 1.21.1, usually setInvisible(true) helps, 
-            // but for full tab removal we need custom packet handling.
-            // For now, we'll ensure the name is updated and invisibility is set.
+        // Handle Vanish Tab visibility via AdminManager
+        if (AdminManager.isVanished(player.getUUID())) {
+            AdminManager.hideFromTabList(player);
         }
     }
 
