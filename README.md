@@ -2,81 +2,156 @@
 
 A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with stability and compatibility in mind.
 
-## 🚀 Key Features
+## 🚀 Features
 
-### 🏠 Teleportation System
-*   **Homes**: `/sethome`, `/home`, `/delhome`
-*   **Warps**: `/setwarp`, `/warp`, `/delwarp`, `/listwarps`
-*   **TPA**: `/tpa`, `/tpaccept`, `/tpdeny`, `/tpcancel`
-*   **Spawn**: `/spawn`, `/setspawn`
-*   **RTP**: `/rtp` with configurable distance and safety checks.
-*   **Back**: `/back` to return to your previous location (on death or teleport).
+### 🏠 Teleportation
+- **Homes** — `/sethome`, `/home`, `/delhome`, `/homes`
+- **Warps** — `/setwarp`, `/warp`, `/delwarp`, `/warps`
+- **TPA** — `/tpa`, `/tpahere`, `/tpaccept`, `/tpdeny` (multiple pending requests)
+- **Spawn** — `/spawn`
+- **RTP** — `/rtp` async random teleport with biome blacklist
+- **Back** — `/back` return to previous location (death/teleport)
+- **Top** — `/top` teleport to highest block
+- **TpAll** — `/tpall` teleport all players to you
 
 ### 💬 Chat & Identity
-*   **Nicknames**: Set custom display names with `/nick`.
-*   **Identity Modes**: Toggle Recording `/recording` or Streaming `/streaming` indicators.
-*   **LuckPerms Support**: Fully integrated with LuckPerms for prefixes, suffixes, and colors.
-*   **Custom Chat Format**: Highly configurable chat layout in `mktessentials-common.toml`.
+- **Nicknames** — `/nick` custom display names
+- **Chat Format** — Per-group chat formats via LuckPerms integration
+- **Hover Info** — Hover over player names to see rank, ping, UUID
+- **Recording/Streaming** — `/recording`, `/streaming` status indicators
+- **AFK Detection** — Automatic [AFK] prefix after inactivity
 
-### 📦 Kit System
-*   **Kit Management**: Create kits from your inventory with `/createkit <name> <cooldown>`.
-*   **Claiming**: `/kit <name>` to receive items with NBT preservation (enchants, custom names).
-*   **Cooldowns**: Robust cooldown tracking per player.
+### 📦 Kits
+- **Create** — `/createkit <name> <cooldown>` from your inventory
+- **Claim** — `/kit <name>` with cooldown tracking
+- **Delete** — `/deletekit <name>`
 
-### 🛡️ Admin Utilities
-*   **Vanish**: Hide from other players and the Tab list with `/vanish`.
-*   **Mute**: Mute problematic players with `/mute <player> <duration>`.
-*   **God Mode**: Invulnerability with `/god`.
-*   **Maintenance**: `/heal`, `/feed`, `/fly`, `/speed`, `/clearinv`.
-*   **Global Broadcast**: `/broadcast` for server-wide announcements.
+### 🛡️ Admin
+- **Heal/Feed** — `/heal`, `/feed`
+- **Fly/God** — `/fly`, `/god` (persists across reconnects)
+- **Vanish** — `/vanish` (persists, fake join/quit messages)
+- **Speed** — `/speed fly|walk <0-10>`
+- **Inventory** — `/invsee <player>`, `/enderchest <player>` (supports offline players + Curios)
+- **Clear** — `/clearinv`
+- **Repair** — `/repair` item in hand
+- **Enchant** — `/enchant <enchantment> <level>`
 
-## 🔑 Permissions
-MKT Essentials uses a granular permission system. You can view all nodes in-game using:
-` /mkt permissions`
+### 🔨 Moderation
+- **Kick** — `/kick <player> [reason]`
+- **Ban** — `/ban <player> [reason]`, `/tempban <player> <duration> [reason]`, `/unban <player>`
+- **Mute** — `/mute <player> [duration]`, `/unmute <player>` (supports offline players)
+- **Ban Screen** — Banned players see reason + remaining time on connect
 
-### 🔑 Full Permission List
+### 💾 Inventory Backups
+- **Auto-backup** — On death, join, quit (configurable)
+- **Manual** — `/invbackup save <player> [note]`
+- **Browse** — `/invbackup list <player>` opens GUI with backup history
+- **Restore** — Click a backup in GUI or `/invbackup restore <player> <file>`
+- **Delete** — `/invbackup delete <player> <file>`
+- **Scheduled** — Optional periodic backups for all online players
 
-| Permission Node | Description | Default Level |
-|-----------------|-------------|---------------|
-| `mktessentials.admin.permissions` | Access to `/mkt permissions` | OP 2 |
-| `mktessentials.admin.kits` | Create and delete kits | OP 2 |
-| `mktessentials.admin.mute` | Mute and unmute players | OP 2 |
-| `mktessentials.admin.vanish` | Use vanish mode | OP 2 |
-| `mktessentials.admin.speed` | Change flying speed | OP 2 |
-| `mktessentials.admin.tpall` | Teleport all players to you | OP 2 |
-| `mktessentials.admin.broadcast` | Send server-wide announcements | OP 2 |
-| `mktessentials.admin.weather` | Change weather (sun/rain/thunder) | OP 2 |
-| `mktessentials.admin.time` | Change world time | OP 2 |
-| `mktessentials.admin.heal` | Heal yourself or others | OP 2 |
-| `mktessentials.admin.feed` | Feed yourself or others | OP 2 |
-| `mktessentials.admin.fly` | Toggle flight mode | OP 2 |
-| `mktessentials.admin.god` | Toggle invulnerability | OP 2 |
-| `mktessentials.admin.clearinv` | Clear player inventory | OP 2 |
-| `mktessentials.admin.nick` | Change or reset another player's nickname | OP 2 |
-| `mktessentials.kit.<name>` | Claim a specific kit | All |
-| `mktessentials.command.home` | Use /home | All |
-| `mktessentials.command.sethome` | Use /sethome | All |
-| `mktessentials.command.delhome` | Use /delhome | All |
-| `mktessentials.command.listhomes` | Use /listhomes | All |
-| `mktessentials.command.spawn` | Use /spawn | All |
-| `mktessentials.command.tpa` | Use /tpa, /tpaccept, /tpdeny | All |
-| `mktessentials.command.tpahere` | Use /tpahere | All |
-| `mktessentials.command.warp` | Use /warp | All |
-| `mktessentials.command.listwarps` | Use /listwarps | All |
-| `mktessentials.command.rtp` | Use /rtp | All |
-| `mktessentials.command.back` | Use /back | All |
-| `mktessentials.command.nick` | Use /nick and /nickname for yourself | All |
-| `mktessentials.command.recording` | Use /recording | All |
-| `mktessentials.command.streaming` | Use /streaming | All |
+### 📢 Broadcasts
+- **Automated** — Configurable interval, random or sequential order
+- **Custom prefix** — Per-broadcast formatting
+
+### ⏰ Time & Weather
+- `/day`, `/night`, `/sun`, `/rain`
 
 ## ⚙️ Configuration
-The mod generates a professional configuration file at `config/mktessentials-common.toml`.
-You can customize:
-*   **Chat Formats**: `{dot}{prefix}{name}{suffix}: {message}`
-*   **Teleport Delays**: Set warmups for RTP and other teleports.
-*   **Messages**: Customize join/quit, welcome, and vanish messages.
 
-## 🛠️ Requirements & Compatibility
-*   **NeoForge**: 1.21.1 (v21.1.228+)
-*   **LuckPerms**: Recommended for full chat integration (Use v5.5+ for NeoForge stability).
-*   **TAB Mod**: Fully compatible. To use MKT Essentials nicknames in your TabList, use `%mkt_full_name%`, `%mkt_prefix%`, or `%mkt_suffix%` in your TAB config.
+MKT Essentials uses a YAML-based configuration system in `config/mktessentials/`:
+
+```
+config/mktessentials/
+├── settings.yml      — Teleportation, RTP, AFK, backups, general settings
+├── commands.yml      — Enable/disable individual commands
+├── messages.yml      — Chat format, join/quit messages, broadcasts
+└── lang/
+    ├── en_us.yml     — English messages
+    └── pl_pl.yml     — Polish messages
+```
+
+### Command Toggle
+Disable any command by setting it to `false` in `commands.yml`:
+```yaml
+admin:
+  fly: true
+  god: true
+  vanish: false  # disabled
+```
+
+### Internationalization
+Change language in `settings.yml`:
+```yaml
+language: "pl_pl"
+```
+Add custom languages by creating new files in `config/mktessentials/lang/`.
+
+### Per-Group Chat Format
+In `messages.yml`:
+```yaml
+chat:
+  format: "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}"
+  group-formats:
+    admin: "&c[Admin] &f%mktessentials:name%&8: &f{message}"
+    vip: "&6[VIP] &f%mktessentials:name%&8: &f{message}"
+```
+
+## 🔑 Permissions
+
+| Node | Description | Default |
+|------|-------------|---------|
+| `mktessentials.command.home` | Home commands | All |
+| `mktessentials.command.warp` | Warp commands | All |
+| `mktessentials.command.spawn` | /spawn | All |
+| `mktessentials.command.back` | /back | All |
+| `mktessentials.command.rtp` | /rtp | All |
+| `mktessentials.command.tpa` | TPA commands | All |
+| `mktessentials.command.nick` | /nick | All |
+| `mktessentials.admin.heal` | /heal | OP 2 |
+| `mktessentials.admin.feed` | /feed | OP 2 |
+| `mktessentials.admin.fly` | /fly | OP 2 |
+| `mktessentials.admin.god` | /god | OP 2 |
+| `mktessentials.admin.vanish` | /vanish | OP 2 |
+| `mktessentials.admin.speed` | /speed | OP 2 |
+| `mktessentials.admin.clearinv` | /clearinv | OP 2 |
+| `mktessentials.admin.tpall` | /tpall | OP 2 |
+| `mktessentials.admin.invsee` | /invsee | OP 2 |
+| `mktessentials.admin.enderchest` | /enderchest | OP 2 |
+| `mktessentials.admin.backup` | /invbackup | OP 2 |
+| `mktessentials.admin.reload` | /mkt reload | OP 3 |
+| `mktessentials.utility.repair` | /repair | OP 2 |
+| `mktessentials.utility.enchant` | /enchant | OP 2 |
+| `mktessentials.moderation.kick` | /kick | OP 2 |
+| `mktessentials.moderation.ban` | /ban | OP 3 |
+| `mktessentials.moderation.tempban` | /tempban | OP 3 |
+| `mktessentials.moderation.unban` | /unban | OP 3 |
+| `mktessentials.admin.mute` | /mute | OP 2 |
+
+## 🛠️ Requirements
+
+- **NeoForge** 1.21.1 (v21.1.228+)
+- **Java** 21
+
+## 🔗 Optional Integrations
+
+| Mod | Integration |
+|-----|-------------|
+| **LuckPerms** | Permissions, prefixes/suffixes, per-group chat format |
+| **Text Placeholder API** | Placeholder support in chat/tab (`%mktessentials:...%`) |
+| **TAB** | Tab list placeholders (`%mkt_full_name%`, `%mkt_prefix%`, `%mkt_suffix%`) |
+| **Curios API** | /invsee shows Curios slots |
+
+All integrations are optional — the mod works without them.
+
+## 📦 Building
+
+```bash
+./gradlew build
+```
+
+Output JAR: `build/libs/mktessentials-1.0.0.jar`
+
+## 📄 License
+
+GPL-3.0-only
