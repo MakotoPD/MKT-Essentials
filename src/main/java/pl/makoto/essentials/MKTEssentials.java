@@ -13,6 +13,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import pl.makoto.essentials.config.ConfigManager;
 import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.util.BanManager;
+import pl.makoto.essentials.util.BackupManager;
 import pl.makoto.essentials.util.LuckPermsHook;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.data.DataManager;
@@ -57,6 +58,7 @@ public class MKTEssentials {
         if (Settings.isCommandEnabled("kick")) KickCommand.register(dispatcher);
         if (Settings.isCommandEnabled("repair")) RepairCommand.register(dispatcher);
         if (Settings.isCommandEnabled("enchant")) EnchantCommand.register(dispatcher);
+        if (Settings.isCommandEnabled("backup")) BackupCommands.register(dispatcher);
     }
 
     @SubscribeEvent
@@ -66,6 +68,7 @@ public class MKTEssentials {
         ConfigManager.init();
         DataManager.init(server);
         BanManager.init(server);
+        BackupManager.init(server);
         LuckPermsHook.init();
         Permissions.init();
         MKTPlaceholders.register();

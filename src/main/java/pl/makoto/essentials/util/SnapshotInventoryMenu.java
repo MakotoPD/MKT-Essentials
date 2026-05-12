@@ -15,10 +15,20 @@ import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
 import pl.makoto.essentials.MKTEssentials;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.storage.LevelResource;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * A server-side container menu that displays a snapshot of another player's
@@ -160,6 +170,204 @@ public class SnapshotInventoryMenu extends ChestMenu {
                         -1, List.of(), finalFillerSlots),
                 Component.literal(target.getScoreboardName() + "'s Ender Chest")
         ));
+    }
+
+    // --- Offline Player Support ---
+
+    /**
+     * Opens an offline player's inventory by reading their .dat file.
+     * Changes are saved back to the .dat file when the GUI is closed.
+     */
+    public static void openOfflineInventory(ServerPlayer viewer, UUID targetUuid, String playerName, MinecraftServer server) {
+        CompoundTag playerData = loadOfflinePlayerData(targetUuid, server);
+        if (playerData == null) {
+            viewer.sendSystemMessage(MessageUtils.prefixed("&cCould not load player data for " + playerName));
+            return;
+        }
+
+        int rows = 6;
+        int containerSize = MAX_CONTAINER_SIZE;
+        SimpleContainer container = new SimpleContainer(containerSize);
+        Set<Integer> fillerSlots = new HashSet<>();
+
+        // Parse inventory from NBT
+        ListTag inventoryTag = playerData.getList("Inventory", 10); // 10 = CompoundTag
+        for (int i = 0; i < inventoryTag.size(); i++) {
+            CompoundTag itemTag = inventoryTag.getCompound(i);
+            int slot = itemTag.getByte("Slot") & 0xFF;
+            ItemStack stack = ItemStack.parse(server.registryAccess(), itemTag).orElse(ItemStack.EMPTY);
+
+            if (slot >= 0 && slot < 36) {
+                container.setItem(slot, stack);
+            } else if (slot >= 100 && slot <= 103) {
+                container.setItem(36 + (slot - 100), stack); // armor slots 36-39
+            } else if (slot == -106 || slot == 150) {
+                container.setItem(40, stack); // offhand
+            }
+        }
+
+        fillEmptyWithPanes(container, 0, containerSize, fillerSlots);
+
+        final Set<Integer> finalFillerSlots = fillerSlots;
+        final CompoundTag finalPlayerData = playerData;
+        viewer.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, player) -> new OfflineSnapshotMenu(
+                        containerId, playerInventory, container, targetUuid, playerName, server,
+                        finalPlayerData, rows, finalFillerSlots, false),
+                Component.literal(playerName + "'s Inventory (Offline)")
+        ));
+    }
+
+    /**
+     * Opens an offline player's ender chest by reading their .dat file.
+     */
+    public static void openOfflineEnderChest(ServerPlayer viewer, UUID targetUuid, String playerName, MinecraftServer server) {
+        CompoundTag playerData = loadOfflinePlayerData(targetUuid, server);
+        if (playerData == null) {
+            viewer.sendSystemMessage(MessageUtils.prefixed("&cCould not load player data for " + playerName));
+            return;
+        }
+
+        SimpleContainer container = new SimpleContainer(ENDER_CHEST_SLOTS);
+        Set<Integer> fillerSlots = new HashSet<>();
+
+        // Parse ender chest from NBT
+        ListTag enderItems = playerData.getList("EnderItems", 10);
+        for (int i = 0; i < enderItems.size(); i++) {
+            CompoundTag itemTag = enderItems.getCompound(i);
+            int slot = itemTag.getByte("Slot") & 0xFF;
+            ItemStack stack = ItemStack.parse(server.registryAccess(), itemTag).orElse(ItemStack.EMPTY);
+            if (slot >= 0 && slot < ENDER_CHEST_SLOTS) {
+                container.setItem(slot, stack);
+            }
+        }
+
+        fillEmptyWithPanes(container, 0, ENDER_CHEST_SLOTS, fillerSlots);
+
+        final Set<Integer> finalFillerSlots = fillerSlots;
+        final CompoundTag finalPlayerData = playerData;
+        viewer.openMenu(new SimpleMenuProvider(
+                (containerId, playerInventory, player) -> new OfflineSnapshotMenu(
+                        containerId, playerInventory, container, targetUuid, playerName, server,
+                        finalPlayerData, ENDER_CHEST_ROWS, finalFillerSlots, true),
+                Component.literal(playerName + "'s Ender Chest (Offline)")
+        ));
+    }
+
+    private static CompoundTag loadOfflinePlayerData(UUID uuid, MinecraftServer server) {
+        Path worldDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+        Path playerFile = worldDir.resolve(uuid.toString() + ".dat");
+        if (!Files.exists(playerFile)) return null;
+        try {
+            return NbtIo.readCompressed(playerFile, NbtAccounter.unlimitedHeap());
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.error("Failed to load offline player data for " + uuid, e);
+            return null;
+        }
+    }
+
+    /**
+     * Inner class for offline inventory editing. Saves changes back to the .dat file on close.
+     */
+    private static class OfflineSnapshotMenu extends ChestMenu {
+        private final SimpleContainer snapshotContainer;
+        private final UUID targetUuid;
+        private final String playerName;
+        private final MinecraftServer server;
+        private final CompoundTag playerData;
+        private final Set<Integer> fillerSlots;
+        private final boolean isEnderChest;
+
+        OfflineSnapshotMenu(int containerId, Inventory playerInventory, SimpleContainer container,
+                            UUID targetUuid, String playerName, MinecraftServer server,
+                            CompoundTag playerData, int rows, Set<Integer> fillerSlots, boolean isEnderChest) {
+            super(getMenuType(rows), containerId, playerInventory, container, rows);
+            this.snapshotContainer = container;
+            this.targetUuid = targetUuid;
+            this.playerName = playerName;
+            this.server = server;
+            this.playerData = playerData;
+            this.fillerSlots = fillerSlots;
+            this.isEnderChest = isEnderChest;
+        }
+
+        @Override
+        public void clicked(int slotId, int button, ClickType clickType, Player player) {
+            if (slotId >= 0 && slotId < snapshotContainer.getContainerSize() && fillerSlots.contains(slotId)) {
+                return;
+            }
+            super.clicked(slotId, button, clickType, player);
+        }
+
+        @Override
+        public ItemStack quickMoveStack(Player player, int index) {
+            if (fillerSlots.contains(index)) return ItemStack.EMPTY;
+            return super.quickMoveStack(player, index);
+        }
+
+        @Override
+        public void removed(Player player) {
+            super.removed(player);
+            saveOfflinePlayerData();
+        }
+
+        private void saveOfflinePlayerData() {
+            try {
+                if (isEnderChest) {
+                    ListTag enderItems = new ListTag();
+                    for (int i = 0; i < ENDER_CHEST_SLOTS; i++) {
+                        if (fillerSlots.contains(i)) continue;
+                        ItemStack stack = snapshotContainer.getItem(i);
+                        if (!stack.isEmpty()) {
+                            CompoundTag itemTag = (CompoundTag) stack.save(server.registryAccess());
+                            itemTag.putByte("Slot", (byte) i);
+                            enderItems.add(itemTag);
+                        }
+                    }
+                    playerData.put("EnderItems", enderItems);
+                } else {
+                    ListTag inventoryTag = new ListTag();
+                    // Main inventory (slots 0-35)
+                    for (int i = 0; i < 36; i++) {
+                        if (fillerSlots.contains(i)) continue;
+                        ItemStack stack = snapshotContainer.getItem(i);
+                        if (!stack.isEmpty()) {
+                            CompoundTag itemTag = (CompoundTag) stack.save(server.registryAccess());
+                            itemTag.putByte("Slot", (byte) i);
+                            inventoryTag.add(itemTag);
+                        }
+                    }
+                    // Armor (slots 36-39 → NBT slots 100-103)
+                    for (int i = 0; i < 4; i++) {
+                        if (fillerSlots.contains(36 + i)) continue;
+                        ItemStack stack = snapshotContainer.getItem(36 + i);
+                        if (!stack.isEmpty()) {
+                            CompoundTag itemTag = (CompoundTag) stack.save(server.registryAccess());
+                            itemTag.putByte("Slot", (byte) (100 + i));
+                            inventoryTag.add(itemTag);
+                        }
+                    }
+                    // Offhand (slot 40 → NBT slot -106)
+                    if (!fillerSlots.contains(40)) {
+                        ItemStack stack = snapshotContainer.getItem(40);
+                        if (!stack.isEmpty()) {
+                            CompoundTag itemTag = (CompoundTag) stack.save(server.registryAccess());
+                            itemTag.putByte("Slot", (byte) -106);
+                            inventoryTag.add(itemTag);
+                        }
+                    }
+                    playerData.put("Inventory", inventoryTag);
+                }
+
+                // Save back to .dat file
+                Path worldDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+                Path playerFile = worldDir.resolve(targetUuid.toString() + ".dat");
+                NbtIo.writeCompressed(playerData, playerFile);
+                MKTEssentials.LOGGER.info("Saved offline inventory changes for " + playerName + " (" + targetUuid + ")");
+            } catch (Exception e) {
+                MKTEssentials.LOGGER.error("Failed to save offline player data for " + playerName, e);
+            }
+        }
     }
 
     @Override

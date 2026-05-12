@@ -75,12 +75,16 @@ public class AdminCommands {
         dispatcher.register(Commands.literal("invsee")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.invsee", 2))
                 .then(Commands.argument("player", EntityArgument.player())
-                        .executes(context -> invsee(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+                        .executes(context -> invsee(context.getSource(), EntityArgument.getPlayer(context, "player"))))
+                .then(Commands.argument("offlinePlayer", com.mojang.brigadier.arguments.StringArgumentType.word())
+                        .executes(context -> invseeOffline(context.getSource(), com.mojang.brigadier.arguments.StringArgumentType.getString(context, "offlinePlayer")))));
 
         dispatcher.register(Commands.literal("enderchest")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.enderchest", 2))
                 .then(Commands.argument("player", EntityArgument.player())
-                        .executes(context -> enderchest(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+                        .executes(context -> enderchest(context.getSource(), EntityArgument.getPlayer(context, "player"))))
+                .then(Commands.argument("offlinePlayer", com.mojang.brigadier.arguments.StringArgumentType.word())
+                        .executes(context -> enderchestOffline(context.getSource(), com.mojang.brigadier.arguments.StringArgumentType.getString(context, "offlinePlayer")))));
     }
 
     private static int heal(CommandSourceStack source, ServerPlayer target) {
@@ -206,6 +210,34 @@ public class AdminCommands {
         ServerPlayer viewer = source.getPlayer();
         if (viewer == null || target == null) return 0;
         SnapshotInventoryMenu.openEnderChest(viewer, target);
+        return 1;
+    }
+
+    private static int invseeOffline(CommandSourceStack source, String playerName) {
+        ServerPlayer viewer = source.getPlayer();
+        if (viewer == null) return 0;
+        
+        UUID uuid = DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+        
+        SnapshotInventoryMenu.openOfflineInventory(viewer, uuid, playerName, source.getServer());
+        return 1;
+    }
+
+    private static int enderchestOffline(CommandSourceStack source, String playerName) {
+        ServerPlayer viewer = source.getPlayer();
+        if (viewer == null) return 0;
+        
+        UUID uuid = DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+        
+        SnapshotInventoryMenu.openOfflineEnderChest(viewer, uuid, playerName, source.getServer());
         return 1;
     }
 

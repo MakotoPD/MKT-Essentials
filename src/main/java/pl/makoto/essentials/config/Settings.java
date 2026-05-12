@@ -31,6 +31,13 @@ public final class Settings {
     // Vanish
     private static boolean vanishFakeMessages = true;
 
+    // Backup
+    private static boolean backupOnDeath = true;
+    private static boolean backupOnJoin = false;
+    private static boolean backupOnQuit = true;
+    private static int backupInterval = 0; // 0 = disabled, seconds between scheduled backups
+    private static int maxBackupsPerPlayer = 10;
+
     // Messages
     private static String chatFormat = "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}";
     private static Map<String, String> groupChatFormats = new HashMap<>();
@@ -64,6 +71,11 @@ public final class Settings {
     public static int getAfkTimeout() { return afkTimeout; }
     public static int getAutoSaveInterval() { return autoSaveInterval; }
     public static boolean isVanishFakeMessages() { return vanishFakeMessages; }
+    public static boolean isBackupOnDeath() { return backupOnDeath; }
+    public static boolean isBackupOnJoin() { return backupOnJoin; }
+    public static boolean isBackupOnQuit() { return backupOnQuit; }
+    public static int getBackupInterval() { return backupInterval; }
+    public static int getMaxBackupsPerPlayer() { return maxBackupsPerPlayer; }
     public static String getChatFormat() { return chatFormat; }
     public static Map<String, String> getGroupChatFormats() { return groupChatFormats; }
     
@@ -111,6 +123,11 @@ public final class Settings {
         afkTimeout = ConfigManager.getNestedValue(map, "afk.timeout", 300);
         autoSaveInterval = ConfigManager.getNestedValue(map, "data.auto-save-interval", 300);
         vanishFakeMessages = ConfigManager.getNestedValue(map, "vanish.fake-messages", true);
+        backupOnDeath = ConfigManager.getNestedValue(map, "backup.on-death", true);
+        backupOnJoin = ConfigManager.getNestedValue(map, "backup.on-join", false);
+        backupOnQuit = ConfigManager.getNestedValue(map, "backup.on-quit", true);
+        backupInterval = ConfigManager.getNestedValue(map, "backup.interval", 0);
+        maxBackupsPerPlayer = ConfigManager.getNestedValue(map, "backup.max-per-player", 10);
     }
 
     @SuppressWarnings("unchecked")

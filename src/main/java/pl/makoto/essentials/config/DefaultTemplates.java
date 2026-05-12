@@ -84,6 +84,21 @@ final class DefaultTemplates {
             vanish:
               # Send fake join/quit messages when admins vanish/unvanish
               fake-messages: true
+
+            # ============================================
+            #  Inventory Backups
+            # ============================================
+            backup:
+              # Automatically backup inventory on player death
+              on-death: true
+              # Automatically backup inventory when player joins the server
+              on-join: false
+              # Automatically backup inventory when player leaves the server
+              on-quit: true
+              # Interval in seconds between scheduled backups for all online players (0 = disabled)
+              interval: 0
+              # Maximum number of backups to keep per player (oldest are deleted)
+              max-per-player: 10
             """;
 
     static final String COMMANDS_YML = """
@@ -120,6 +135,7 @@ final class DefaultTemplates {
               tpall: true     # /tpall
               invsee: true    # /invsee <player>
               enderchest: true # /enderchest <player>
+              backup: true    # /invbackup save|list|restore|delete
 
             # ============================================
             #  Moderation Commands
