@@ -3,7 +3,7 @@ package pl.makoto.essentials.util;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.MKTEssentials;
 
 import java.util.List;
@@ -17,7 +17,7 @@ public class BroadcastManager {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        int intervalSeconds = Config.BROADCAST_INTERVAL.get();
+        int intervalSeconds = Settings.getBroadcastInterval();
         if (intervalSeconds <= 0) return;
 
         long intervalTicks = intervalSeconds * 20L;
@@ -30,11 +30,11 @@ public class BroadcastManager {
     }
 
     private static void broadcast(net.minecraft.server.MinecraftServer server) {
-        List<? extends String> messages = Config.BROADCAST_MESSAGES.get();
+        List<? extends String> messages = Settings.getBroadcastMessages();
         if (messages.isEmpty()) return;
 
         String msg;
-        if ("sequential".equalsIgnoreCase(Config.BROADCAST_ORDER.get())) {
+        if ("sequential".equalsIgnoreCase(Settings.getBroadcastOrder())) {
             if (currentIndex >= messages.size()) currentIndex = 0;
             msg = messages.get(currentIndex);
             currentIndex++;
@@ -43,7 +43,7 @@ public class BroadcastManager {
         }
 
         server.getPlayerList().broadcastSystemMessage(
-            MessageUtils.formatBypass(Config.BROADCAST_PREFIX.get() + msg), false
+            MessageUtils.formatBypass(Settings.getBroadcastPrefix() + msg), false
         );
     }
 }

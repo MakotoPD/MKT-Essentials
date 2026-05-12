@@ -12,7 +12,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.phys.Vec3;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
@@ -20,6 +20,7 @@ import pl.makoto.essentials.util.TeleportUtils;
 import pl.makoto.essentials.util.TeleportManager;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
+import pl.makoto.essentials.config.I18n;
 
 import java.util.List;
 import java.util.Random;
@@ -69,7 +70,7 @@ public class MiscTeleportCommands {
         PlayerData data = DataManager.getPlayerData(player.getUUID());
         PlayerData.SavedLocation loc = data.popBackLocation();
         if (loc == null) {
-            source.sendFailure(MessageUtils.prefixed("&cNo back location found!"));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("back.no-location")));
             return 0;
         }
 
@@ -86,69 +87,69 @@ public class MiscTeleportCommands {
         UUID playerUuid = player.getUUID();
         String dimensionId = level.dimension().location().toString();
 
-        int min = Config.RTP_MIN_DISTANCE.get();
-        int max = Config.RTP_MAX_DISTANCE.get();
+        int min = Settings.getRtpMinDistance();
+        int max = Settings.getRtpMaxDistance();
 
-        double centerX = Config.RTP_RELATIVE.get() ? player.getX() : Config.RTP_CENTER_X.get();
-        double centerZ = Config.RTP_RELATIVE.get() ? player.getZ() : Config.RTP_CENTER_Z.get();
+        double centerX = Settings.isRtpRelative() ? player.getX() : Settings.getRtpCenterX();
+        double centerZ = Settings.isRtpRelative() ? player.getZ() : Settings.getRtpCenterZ();
 
-        List<? extends String> blacklist = Config.RTP_BIOME_BLACKLIST.get();
+        List<? extends String> blacklist = Settings.getRtpBiomeBlacklist();
 
         // Send "Searching..." action-bar message before starting async work
-        player.sendSystemMessage(MessageUtils.prefixed("&7Searching for a safe location..."), true);
+        player.sendSystemMessage(MessageUtils.prefixed(I18n.get("rtp.searching")), true);
 
-        // Offload the search loop to a CompletableFuture worker thread
+        // Offload candidate generation to async, then validate on main thread
         CompletableFuture.supplyAsync(() -> {
-            // Async: generate random positions and check biomes (thread-safe biome source lookups)
+            // Async: generate random X/Z candidates (no chunk loading here)
+            double[][] candidates = new double[50][2];
             for (int i = 0; i < 50; i++) {
-                double x = centerX + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
-                double z = centerZ + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
-
-                // Biome lookup from the chunk generator's biome source is thread-safe
-                BlockPos candidatePos = BlockPos.containing(x, 64, z);
-                String biomeId = level.getBiome(candidatePos).unwrapKey()
-                        .map(key -> key.location().toString()).orElse("unknown");
-
-                String finalBiomeId = biomeId;
-                boolean isBlacklisted = blacklist.stream().anyMatch(s -> s.trim().equalsIgnoreCase(finalBiomeId));
-
-                if (!isBlacklisted) {
-                    // Return the candidate X/Z coordinates; actual chunk loading happens on main thread
-                    return new double[]{x, z};
-                } else {
-                    MKTEssentials.LOGGER.info("RTP: Skipping blacklisted biome: {}", biomeId);
-                }
+                candidates[i][0] = centerX + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
+                candidates[i][1] = centerZ + (RANDOM.nextBoolean() ? 1 : -1) * (min + RANDOM.nextInt(max - min));
             }
-            return null; // No valid location found after 50 attempts
-        }).thenAccept(result -> {
-            // Schedule back to main thread via server.tell(new TickTask(...))
+            return candidates;
+        }).thenAccept(candidates -> {
+            // Schedule validation back to main thread (chunk loading + biome check must be on main thread)
             server.tell(new TickTask(server.getTickCount() + 1, () -> {
-                // Check if player is still online before teleporting
                 ServerPlayer p = server.getPlayerList().getPlayer(playerUuid);
                 if (p == null) return; // Player disconnected during search
 
-                if (result == null) {
-                    p.sendSystemMessage(MessageUtils.prefixed("&cCould not find a safe location after 50 attempts. Please try again."));
+                ServerLevel targetLevel = (ServerLevel) p.level();
+
+                for (double[] candidate : candidates) {
+                    double x = candidate[0];
+                    double z = candidate[1];
+
+                    // Load chunk on main thread (thread-safe here)
+                    targetLevel.getChunkSource().getChunk((int) x >> 4, (int) z >> 4, ChunkStatus.FULL, true);
+
+                    // Get surface position via heightmap
+                    BlockPos pos = targetLevel.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(x, 0, z));
+
+                    // Skip if no valid surface found (void, below min build height)
+                    if (pos.getY() <= targetLevel.getMinBuildHeight()) {
+                        continue;
+                    }
+
+                    // Check biome at the ACTUAL surface position (not at y=64)
+                    String biomeId = targetLevel.getBiome(pos).unwrapKey()
+                            .map(key -> key.location().toString()).orElse("unknown");
+
+                    boolean isBlacklisted = blacklist.stream().anyMatch(s -> s.trim().equalsIgnoreCase(biomeId));
+                    if (isBlacklisted) {
+                        continue;
+                    }
+
+                    // Valid location found — teleport
+                    TeleportManager.requestTeleport(p, new PlayerData.SavedLocation(
+                            dimensionId,
+                            new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5),
+                            p.getYRot(), p.getXRot()
+                    ), false);
                     return;
                 }
 
-                double x = result[0];
-                double z = result[1];
-
-                // Main thread: load chunk and get heightmap position (NOT thread-safe)
-                ServerLevel targetLevel = (ServerLevel) p.level();
-                targetLevel.getChunkSource().getChunk((int) x >> 4, (int) z >> 4, ChunkStatus.FULL, true);
-                BlockPos pos = targetLevel.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(x, 0, z));
-
-                if (pos.getY() <= targetLevel.getMinBuildHeight()) {
-                    pos = new BlockPos((int) x, targetLevel.getLogicalHeight(), (int) z);
-                }
-
-                TeleportManager.requestTeleport(p, new PlayerData.SavedLocation(
-                        dimensionId,
-                        new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5),
-                        p.getYRot(), p.getXRot()
-                ), false);
+                // No valid location found after all candidates
+                p.sendSystemMessage(MessageUtils.prefixed(I18n.get("rtp.failed")));
             }));
         });
 

@@ -28,6 +28,10 @@ sourceSets.main.resources {
 
 repositories {
     mavenCentral()
+    maven {
+        name = "Illusive Soulworks maven"
+        url = "https://maven.theillusivec4.top/"
+    }
 }
 
 base {
@@ -120,6 +124,10 @@ configurations {
 dependencies {
     compileOnly 'net.luckperms:api:5.4'
     implementation 'eu.pb4:placeholder_api:2.4.2+1.21.1-neoforge-local'
+    implementation 'org.yaml:snakeyaml:2.2'
+    jarJar(group: 'org.yaml', name: 'snakeyaml', version: '[2.0,3.0)') {
+        version { prefer '2.2' }
+    }
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"

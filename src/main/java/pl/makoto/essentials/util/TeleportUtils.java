@@ -9,7 +9,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.core.particles.ParticleTypes;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
 
@@ -30,7 +30,7 @@ public class TeleportUtils {
         
         if (targetLevel != null) {
             // Effects at start position
-            if (Config.TELEPORT_EFFECTS.get()) {
+            if (Settings.getTeleportEffects()) {
                 player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 1.0f);
                 ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL, player.getX(), player.getY() + 1, player.getZ(), 32, 0.5, 0.5, 0.5, 0.1);
             }
@@ -38,7 +38,7 @@ public class TeleportUtils {
             player.teleportTo(targetLevel, loc.x, loc.y, loc.z, loc.yaw, loc.pitch);
             
             // Effects at end position
-            if (Config.TELEPORT_EFFECTS.get()) {
+            if (Settings.getTeleportEffects()) {
                 targetLevel.playSound(null, loc.x, loc.y, loc.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.0f, 1.0f);
                 targetLevel.sendParticles(ParticleTypes.PORTAL, loc.x, loc.y + 1, loc.z, 32, 0.5, 0.5, 0.5, 0.1);
             }

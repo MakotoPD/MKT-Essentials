@@ -39,7 +39,7 @@ public class TpaManager {
         List<TpaRequest> list = requests.get(targetUuid);
         if (list == null) return List.of();
         long now = System.currentTimeMillis();
-        long timeout = pl.makoto.essentials.Config.TPA_TIMEOUT.get() * 1000L;
+        long timeout = pl.makoto.essentials.config.Settings.getTpaTimeout() * 1000L;
         list.removeIf(r -> now - r.timestamp() > timeout);
         if (list.isEmpty()) requests.remove(targetUuid);
         return list;

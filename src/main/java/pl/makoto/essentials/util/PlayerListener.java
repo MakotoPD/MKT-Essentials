@@ -4,7 +4,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
+import pl.makoto.essentials.config.I18n;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.commands.MessagingCommands;
 import pl.makoto.essentials.data.DataManager;
@@ -20,6 +21,8 @@ import net.neoforged.bus.api.EventPriority;
 
 import net.minecraft.server.TickTask;
 
+import pl.makoto.essentials.data.BanEntry;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +30,35 @@ import java.util.UUID;
 @EventBusSubscriber(modid = MKTEssentials.MODID)
 public class PlayerListener {
     private static final Set<UUID> READY_PLAYERS = new HashSet<>();
+
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onPlayerLoginBanCheck(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        UUID uuid = player.getUUID();
+        if (BanManager.isBanned(uuid)) {
+            BanEntry ban = BanManager.getBan(uuid);
+            if (ban == null) return; // Race condition safety
+
+            Component disconnectMessage;
+            if (ban.isPermanent()) {
+                disconnectMessage = MessageUtils.format(
+                    "&c&lYou are banned from this server.\n\n&7Reason: &f" + ban.getReason()
+                    + "\n&7Banned by: &f" + ban.getIssuer()
+                );
+            } else {
+                long remaining = ban.getExpiresAt() - System.currentTimeMillis();
+                String duration = DurationParser.format(remaining);
+                disconnectMessage = MessageUtils.format(
+                    "&c&lYou are temporarily banned.\n\n&7Reason: &f" + ban.getReason()
+                    + "\n&7Banned by: &f" + ban.getIssuer()
+                    + "\n&7Expires in: &f" + duration
+                );
+            }
+
+            player.connection.disconnect(disconnectMessage);
+        }
+    }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -56,10 +88,10 @@ public class PlayerListener {
             // Hide vanished players from this joining player's tab list
             AdminManager.hideVanishedFromJoiningPlayer(player);
 
-            if (Config.JOIN_QUIT_MESSAGES.get()) {
+            if (Settings.isJoinQuitEnabled()) {
                 if (AdminManager.isVanished(player.getUUID())) return;
 
-                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Config.JOIN_MESSAGE.get()), false);
+                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getJoinMessage()), false);
             }
         }));
     }
@@ -71,17 +103,18 @@ public class PlayerListener {
         READY_PLAYERS.remove(player.getUUID());
 
         // Clean up player-specific state to prevent memory leaks
+        AFKManager.removePlayer(player.getUUID());
         MessagingCommands.cleanupPlayer(player.getUUID());
         TpaManager.cleanupPlayer(player.getUUID());
         AdminManager.cleanupOnDisconnect(player.getUUID());
 
-        if (Config.JOIN_QUIT_MESSAGES.get()) {
+        if (Settings.isJoinQuitEnabled()) {
             if (AdminManager.isVanished(player.getUUID())) {
                 DataManager.evictPlayer(player.getUUID());
                 return;
             }
 
-            event.getEntity().getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Config.QUIT_MESSAGE.get()), false);
+            event.getEntity().getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getQuitMessage()), false);
         }
 
         DataManager.evictPlayer(player.getUUID());
@@ -92,9 +125,8 @@ public class PlayerListener {
     }
 
     public static String getPrefixForTab(ServerPlayer player) {
-        PlayerData data = DataManager.getPlayerData(player.getUUID());
-        String dot = data.isRecording() ? "&c\u25cf &r" : (data.isStreaming() ? "&d\u25cf &r" : "");
-        return dot + LuckPermsHook.getPrefix(player);
+        String afk = AFKManager.isAFK(player.getUUID()) ? "&7[AFK] " : "";
+        return afk + LuckPermsHook.getPrefix(player);
     }
 
     public static String getSuffixForTab(ServerPlayer player) {
@@ -113,7 +145,8 @@ public class PlayerListener {
         String prefix = includeLuckPerms ? LuckPermsHook.getPrefix(player) : "";
         String suffix = includeLuckPerms ? LuckPermsHook.getSuffix(player) : "";
 
-        return dot + prefix + name + suffix;
+        String afkPrefix = AFKManager.isAFK(player.getUUID()) ? "&7[AFK] " : "";
+        return afkPrefix + dot + prefix + name + suffix;
     }
 
     @SubscribeEvent
@@ -127,7 +160,7 @@ public class PlayerListener {
         if (muteExpiration == -1) {
             // Permanently muted
             event.setCanceled(true);
-            player.sendSystemMessage(MessageUtils.prefixed("&cYou are permanently muted."));
+            player.sendSystemMessage(MessageUtils.prefixed(I18n.get("moderation.permanently-muted")));
             return;
         } else if (muteExpiration > 0) {
             long now = System.currentTimeMillis();
@@ -135,7 +168,7 @@ public class PlayerListener {
                 // Timed mute still active
                 event.setCanceled(true);
                 String remaining = formatRemainingTime(muteExpiration - now);
-                player.sendSystemMessage(MessageUtils.prefixed("&cYou are muted for " + remaining + "."));
+                player.sendSystemMessage(MessageUtils.prefixed(I18n.get("moderation.already-muted", "remaining", remaining)));
                 return;
             } else {
                 // Timed mute has expired, clear it
@@ -148,8 +181,12 @@ public class PlayerListener {
         // Cancel original message to remove <PlayerName> brackets
         event.setCanceled(true);
 
+        // Get per-group chat format (falls back to default if no group format defined)
+        String group = LuckPermsHook.getPrimaryGroup(player);
+        String chatFormat = Settings.getChatFormatForGroup(group);
+
         // Format the chat prefix (player name, rank, etc.) using placeholders
-        Component prefix = MessageUtils.format(player, Config.CHAT_FORMAT.get().replace("{message}", ""));
+        Component prefix = MessageUtils.format(player, chatFormat.replace("{message}", ""));
 
         // Build hover text with rank, ping, and UUID
         MutableComponent hoverText = Component.empty();

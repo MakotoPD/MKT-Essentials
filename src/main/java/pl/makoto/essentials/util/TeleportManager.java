@@ -9,7 +9,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.data.PlayerData;
 import pl.makoto.essentials.util.MessageUtils;
@@ -40,7 +40,7 @@ public class TeleportManager {
             }
         }
 
-        int delay = (ignoreDelay || bypass) ? 0 : Permissions.getIntPermission(player, "mktessentials.teleport_delay", Config.TELEPORT_DELAY.get());
+        int delay = (ignoreDelay || bypass) ? 0 : Permissions.getIntPermission(player, "mktessentials.teleport_delay", Settings.getTeleportDelay());
         
         if (delay <= 0) {
             executeTeleport(player, loc);
@@ -69,7 +69,7 @@ public class TeleportManager {
         player.sendSystemMessage(MessageUtils.prefixed("&aTeleported successfully!"));
         
         // Set Cooldown
-        int cooldown = Permissions.getIntPermission(player, "mktessentials.teleport_cooldown", Config.TELEPORT_COOLDOWN.get());
+        int cooldown = Permissions.getIntPermission(player, "mktessentials.teleport_cooldown", Settings.getTeleportCooldown());
         if (cooldown > 0) {
             cooldowns.put(player.getUUID(), System.currentTimeMillis() + (cooldown * 1000L));
         }

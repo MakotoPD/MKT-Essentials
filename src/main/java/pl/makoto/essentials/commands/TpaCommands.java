@@ -14,6 +14,7 @@ import pl.makoto.essentials.util.TeleportUtils;
 import pl.makoto.essentials.util.TeleportManager;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
+import pl.makoto.essentials.config.I18n;
 
 public class TpaCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -45,18 +46,18 @@ public class TpaCommands {
         if (sender == null) return 0;
         
         if (sender == target && net.neoforged.fml.loading.FMLLoader.isProduction()) {
-            source.sendFailure(MessageUtils.prefixed("&cYou cannot teleport to yourself!"));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("tpa.self")));
             return 0;
         }
 
         TpaManager.addRequest(sender, target, here);
         
-        target.sendSystemMessage(MessageUtils.prefixed("&6" + sender.getScoreboardName() + " &7has requested to teleport " + (here ? "you to them" : "to you") + ".")
+        target.sendSystemMessage(MessageUtils.prefixed(I18n.get("tpa.received", "player", sender.getScoreboardName(), "direction", (here ? I18n.get("tpa.you-to-them") : I18n.get("tpa.to-you"))))
                 .copy().append("\n")
                 .append(MessageUtils.format(" &a&l[ACCEPT] ").withStyle(Style.EMPTY.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
                 .append(MessageUtils.format(" &c&l[DENY]").withStyle(Style.EMPTY.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny")))));
         
-        source.sendSuccess(() -> MessageUtils.prefixed("&aTeleport request sent to &6" + target.getScoreboardName() + "."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("tpa.sent", "player", target.getScoreboardName())), true);
         return 1;
     }
 
@@ -66,13 +67,13 @@ public class TpaCommands {
 
         TpaManager.TpaRequest req = TpaManager.getLatestRequest(target.getUUID());
         if (req == null) {
-            source.sendFailure(MessageUtils.prefixed("&cNo pending teleport requests found."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("tpa.no-request")));
             return 0;
         }
 
         ServerPlayer sender = target.getServer().getPlayerList().getPlayer(req.senderUuid());
         if (sender == null) {
-            source.sendFailure(MessageUtils.prefixed("&cThe sender is no longer online."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", "sender")));
             TpaManager.removeRequest(target.getUUID(), req);
             return 0;
         }
@@ -99,7 +100,7 @@ public class TpaCommands {
 
         TpaManager.TpaRequest req = TpaManager.getRequestFrom(target.getUUID(), sender.getUUID());
         if (req == null) {
-            source.sendFailure(MessageUtils.prefixed("&cNo pending request from that player."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("tpa.no-request-from")));
             return 0;
         }
 
@@ -125,13 +126,13 @@ public class TpaCommands {
 
         TpaManager.TpaRequest req = TpaManager.getRequestFrom(target.getUUID(), sender.getUUID());
         if (req == null) {
-            source.sendFailure(MessageUtils.prefixed("&cNo pending request from that player."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("tpa.no-request-from")));
             return 0;
         }
 
-        sender.sendSystemMessage(MessageUtils.prefixed("&6" + target.getScoreboardName() + " &cdenied your teleport request."));
+        sender.sendSystemMessage(MessageUtils.prefixed(I18n.get("tpa.denied")));
         TpaManager.removeRequest(target.getUUID(), req);
-        source.sendSuccess(() -> MessageUtils.prefixed("&cTeleport request denied."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("tpa.denied")), true);
         return 1;
     }
 
@@ -141,17 +142,17 @@ public class TpaCommands {
 
         TpaManager.TpaRequest req = TpaManager.getLatestRequest(target.getUUID());
         if (req == null) {
-            source.sendFailure(MessageUtils.prefixed("&cNo pending teleport requests found."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("tpa.no-request")));
             return 0;
         }
 
         ServerPlayer sender = target.getServer().getPlayerList().getPlayer(req.senderUuid());
         if (sender != null) {
-            sender.sendSystemMessage(MessageUtils.prefixed("&6" + target.getScoreboardName() + " &cdenied your teleport request."));
+            sender.sendSystemMessage(MessageUtils.prefixed(I18n.get("tpa.denied")));
         }
 
         TpaManager.removeRequest(target.getUUID(), req);
-        source.sendSuccess(() -> MessageUtils.prefixed("&cTeleport request denied."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("tpa.denied")), true);
         return 1;
     }
 }

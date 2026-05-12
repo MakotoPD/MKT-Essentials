@@ -3,8 +3,8 @@ package pl.makoto.essentials.commands;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.ConfigManager;
+import pl.makoto.essentials.config.I18n;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
@@ -89,12 +89,16 @@ public class MKTCommand {
 
     private static int reload(CommandSourceStack source) {
         try {
-            // Force NeoForge config spec to re-read values from the file
-            Config.SPEC.afterReload();
-            source.sendSuccess(() -> MessageUtils.prefixed("&aConfiguration reloaded successfully!"), true);
+            boolean success = ConfigManager.reload();
+            if (success) {
+                source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("general.reload-success")), true);
+            } else {
+                source.sendFailure(MessageUtils.prefixed(I18n.get("general.reload-failed")));
+                return 0;
+            }
         } catch (Exception e) {
             MKTEssentials.LOGGER.error("Failed to reload config", e);
-            source.sendFailure(MessageUtils.prefixed("&cFailed to reload configuration. Check console for details."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.reload-failed")));
             return 0;
         }
         return 1;

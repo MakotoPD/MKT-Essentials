@@ -9,8 +9,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.MessageUtils;
+import pl.makoto.essentials.config.I18n;
 import pl.makoto.essentials.util.SnapshotInventoryMenu;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.util.AdminManager;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
@@ -87,14 +88,14 @@ public class AdminCommands {
         target.setHealth(target.getMaxHealth());
         target.getFoodData().setFoodLevel(20);
         target.clearFire();
-        source.sendSuccess(() -> MessageUtils.prefixed("&aHealed &6" + target.getScoreboardName() + "&a."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.healed", "player", target.getScoreboardName())), true);
         return 1;
     }
 
     private static int feed(CommandSourceStack source, ServerPlayer target) {
         if (target == null) return 0;
         target.getFoodData().setFoodLevel(20);
-        source.sendSuccess(() -> MessageUtils.prefixed("&aFed &6" + target.getScoreboardName() + "&a."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.fed", "player", target.getScoreboardName())), true);
         return 1;
     }
 
@@ -109,7 +110,7 @@ public class AdminCommands {
         target.getAbilities().mayfly = canFly;
         if (!canFly) target.getAbilities().flying = false;
         target.onUpdateAbilities();
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Flight " + (canFly ? "&aenabled" : "&cdisabled") + " &7for &6" + target.getScoreboardName() + "&7."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get(canFly ? "admin.fly-enabled" : "admin.fly-disabled", "player", target.getScoreboardName())), true);
         return 1;
     }
 
@@ -122,10 +123,10 @@ public class AdminCommands {
         DataManager.savePlayerData(uuid);
         if (wasGod) {
             target.setInvulnerable(false);
-            source.sendSuccess(() -> MessageUtils.prefixed("&7God mode &cdisabled &7for &6" + target.getScoreboardName() + "&7."), true);
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.god-disabled", "player", target.getScoreboardName())), true);
         } else {
             target.setInvulnerable(true);
-            source.sendSuccess(() -> MessageUtils.prefixed("&7God mode &aenabled &7for &6" + target.getScoreboardName() + "&7."), true);
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.god-enabled", "player", target.getScoreboardName())), true);
         }
         return 1;
     }
@@ -137,14 +138,14 @@ public class AdminCommands {
         boolean vanishedState = AdminManager.toggleVanish(player.getUUID());
         
         if (vanishedState) {
-            source.sendSuccess(() -> MessageUtils.prefixed("&7Vanish &aenabled&7. You are now hidden."), true);
-            if (Config.VANISH_FAKE_MESSAGES.get()) {
-                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Config.QUIT_MESSAGE.get()), false);
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.vanish-enabled")), true);
+            if (Settings.isVanishFakeMessages()) {
+                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getQuitMessage()), false);
             }
         } else {
-            source.sendSuccess(() -> MessageUtils.prefixed("&7Vanish &cdisabled&7. You are now visible."), true);
-            if (Config.VANISH_FAKE_MESSAGES.get()) {
-                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Config.JOIN_MESSAGE.get()), false);
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.vanish-disabled")), true);
+            if (Settings.isVanishFakeMessages()) {
+                player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getJoinMessage()), false);
             }
         }
         return 1;
@@ -153,7 +154,7 @@ public class AdminCommands {
     private static int clearinv(CommandSourceStack source, ServerPlayer target) {
         if (target == null) return 0;
         target.getInventory().clearContent();
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Cleared inventory of &6" + target.getScoreboardName() + "&7."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.clearinv", "player", target.getScoreboardName())), true);
         return 1;
     }
 
@@ -162,7 +163,7 @@ public class AdminCommands {
         float speed = value * 0.05f;
         target.getAbilities().setFlyingSpeed(speed);
         target.onUpdateAbilities();
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Flying speed set to &6" + value + " &7for &6" + target.getScoreboardName() + "&7."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.speed-fly", "value", String.valueOf(value), "player", target.getScoreboardName())), true);
         return 1;
     }
 
@@ -171,7 +172,7 @@ public class AdminCommands {
         float speed = value * 0.05f;
         target.getAbilities().setWalkingSpeed(speed);
         target.onUpdateAbilities();
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Walking speed set to &6" + value + " &7for &6" + target.getScoreboardName() + "&7."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.speed-walk", "value", String.valueOf(value), "player", target.getScoreboardName())), true);
         return 1;
     }
     
@@ -190,7 +191,7 @@ public class AdminCommands {
             count++;
         }
         int finalCount = count;
-        source.sendSuccess(() -> MessageUtils.prefixed("&aTeleported &6" + finalCount + " &aplayers to your location."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.tpall", "count", String.valueOf(finalCount))), true);
         return 1;
     }
 

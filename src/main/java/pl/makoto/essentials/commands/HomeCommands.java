@@ -60,7 +60,7 @@ public class HomeCommands {
         PlayerData data = DataManager.getPlayerData(player.getUUID());
         
         // Check home limit
-        int maxHomes = Permissions.getIntPermission(player, "mktessentials.max_homes", pl.makoto.essentials.Config.MAX_HOMES.get());
+        int maxHomes = Permissions.getIntPermission(player, "mktessentials.max_homes", pl.makoto.essentials.config.Settings.getMaxHomes());
         if (data.getHomes().size() >= maxHomes && !data.getHomes().containsKey(name)) {
             source.sendFailure(MessageUtils.prefixed("&cYou have reached your maximum number of homes (" + maxHomes + ")!"));
             return 0;

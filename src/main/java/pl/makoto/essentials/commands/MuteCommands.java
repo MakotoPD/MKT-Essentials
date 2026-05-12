@@ -9,8 +9,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
+import pl.makoto.essentials.util.DurationParser;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.MessageUtils;
+import pl.makoto.essentials.config.I18n;
 
 import java.util.UUID;
 
@@ -53,15 +55,15 @@ public class MuteCommands {
         DataManager.savePlayerData(target.getUUID());
 
         String timeStr = until.equalsIgnoreCase("forever") ? "forever" : "until " + until;
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Muted &6" + target.getScoreboardName() + " &7" + timeStr + "."), true);
-        target.sendSystemMessage(MessageUtils.prefixed("&cYou have been muted " + timeStr + "."));
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.muted", "player", target.getScoreboardName(), "duration", timeStr)), true);
+        target.sendSystemMessage(MessageUtils.prefixed(I18n.get("moderation.muted-notify", "duration", timeStr)));
         return 1;
     }
 
     private static int muteOffline(CommandSourceStack source, String playerName, String until) {
         UUID uuid = DataManager.resolveOfflineUUID(playerName, source.getServer());
         if (uuid == null) {
-            source.sendFailure(MessageUtils.prefixed("&cPlayer not found."));
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
             return 0;
         }
 
@@ -81,7 +83,7 @@ public class MuteCommands {
         DataManager.savePlayerData(uuid);
 
         String timeStr = until.equalsIgnoreCase("forever") ? "forever" : "until " + until;
-        source.sendSuccess(() -> MessageUtils.prefixed("&7Muted &6" + playerName + " &7" + timeStr + " (offline)."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.muted", "player", playerName, "duration", timeStr + " (offline)")), true);
         return 1;
     }
 
@@ -92,19 +94,12 @@ public class MuteCommands {
         data.setMuteExpiration(0);
         DataManager.savePlayerData(target.getUUID());
 
-        source.sendSuccess(() -> MessageUtils.prefixed("&aUnmuted &6" + target.getScoreboardName() + "&a."), true);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.unmuted", "player", target.getScoreboardName())), true);
         target.sendSystemMessage(MessageUtils.prefixed("&aYou have been unmuted."));
         return 1;
     }
 
     private static long parseDuration(String s) {
-        s = s.toLowerCase();
-        long multiplier = 1000; // ms
-        if (s.endsWith("s")) { multiplier = 1000; s = s.substring(0, s.length() - 1); }
-        else if (s.endsWith("m")) { multiplier = 60 * 1000; s = s.substring(0, s.length() - 1); }
-        else if (s.endsWith("h")) { multiplier = 60 * 60 * 1000; s = s.substring(0, s.length() - 1); }
-        else if (s.endsWith("d")) { multiplier = 24 * 60 * 60 * 1000; s = s.substring(0, s.length() - 1); }
-        
-        return Long.parseLong(s) * multiplier;
+        return DurationParser.parse(s);
     }
 }

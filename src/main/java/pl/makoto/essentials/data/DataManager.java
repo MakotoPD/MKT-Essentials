@@ -7,7 +7,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 import pl.makoto.essentials.MKTEssentials;
 
 import java.io.*;
@@ -90,7 +90,7 @@ public class DataManager {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        int interval = Config.AUTO_SAVE_INTERVAL.get();
+        int interval = Settings.getAutoSaveInterval();
         if (interval <= 0) return;
 
         lastSaveTick++;

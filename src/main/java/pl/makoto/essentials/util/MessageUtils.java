@@ -5,7 +5,7 @@ import eu.pb4.placeholders.api.ServerPlaceholderContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
-import pl.makoto.essentials.Config;
+import pl.makoto.essentials.config.Settings;
 
 public class MessageUtils {
 
@@ -69,7 +69,7 @@ public class MessageUtils {
     }
 
     public static MutableComponent prefixed(String text) {
-        String prefix = Config.MESSAGE_PREFIX.get();
+        String prefix = Settings.getMessagePrefix();
         return format(prefix + text);
     }
 
