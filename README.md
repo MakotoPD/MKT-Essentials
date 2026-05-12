@@ -2,6 +2,11 @@
 
 A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with stability and compatibility in mind.
 
+> ⚠️ **Important Compatibility Notes**
+>
+> - **LuckPerms** — The official NeoForge 1.21.1 build has a known bug. Use the [patched version](https://github.com/onmydestiny/LuckPerms-PATCHED) instead.
+> - **Text Placeholder API** — No official NeoForge 1.21.1 release exists. Use the [NeoForge port](https://github.com/MakotoPD/TextPlaceholderAPI-NeoForge).
+
 ## 🚀 Features
 
 ### 🏠 Teleportation

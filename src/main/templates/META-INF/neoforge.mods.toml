@@ -37,20 +37,29 @@ displayTest="IGNORE_ALL_VERSION"
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 
 # A URL for the "homepage" for this mod, displayed in the mod UI
-#displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
-
-# A file name (in the root of the mod JAR) containing a logo for display
-#logoFile="examplemod.png" #optional
+displayURL="https://github.com/MakotoPD/MKT-Essentials"
 
 # A text field displayed in the mod UI
-#credits="" #optional
+credits="MakotoPD - Development & Design"
 
 # The authors of the mod, displayed in the mod UI (optional)
 authors="MakotoPD"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-MKT Essentials - A server-side utility mod providing homes, warps, teleport requests, and admin tools.
+MKT Essentials is a comprehensive server-side utility mod for NeoForge 1.21.1.
+
+Features:
+- Homes, warps, and teleport requests (TPA)
+- Authentication system with Discord account linking
+- Moderation tools: ban, mute, shadowban, kick
+- Inventory backups with GUI browser and restore
+- Per-group chat formatting via LuckPerms
+- Item cleaner with stacking and hologram countdowns
+- AFK detection, god mode, fly, vanish persistence
+- Kits, enchant, repair, and shortcut commands
+- Full YAML configuration with i18n support (EN/PL)
+- Optional PlaceholderAPI and Curios API integration
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
@@ -94,7 +103,7 @@ MKT Essentials - A server-side utility mod providing homes, warps, teleport requ
 
 [[dependencies.${mod_id}]]
     modId="placeholder_api"
-    type="required"
+    type="optional"
     versionRange="[2.4.2,)"
     ordering="AFTER"
     side="BOTH"
