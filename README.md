@@ -87,6 +87,91 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - `/ping` — Show your latency
 - `/hat` — Put item on head
 
+## 📋 Command Reference
+
+| Command | Description | Permission |
+|---------|-------------|------------|
+| `/home <name>` | Teleport to a saved home | `mktessentials.command.home` |
+| `/sethome <name>` | Save current location as home | `mktessentials.command.sethome` |
+| `/delhome <name>` | Delete a saved home | `mktessentials.command.delhome` |
+| `/homes` | List all your homes | `mktessentials.command.listhomes` |
+| `/warp <name>` | Teleport to a warp point | `mktessentials.command.warp` |
+| `/setwarp <name>` | Create a warp point | `mktessentials.admin.setwarp` |
+| `/delwarp <name>` | Delete a warp point | `mktessentials.admin.delwarp` |
+| `/warps` | List all warp points | `mktessentials.command.listwarps` |
+| `/spawn` | Teleport to world spawn | `mktessentials.command.spawn` |
+| `/back` | Return to previous location | `mktessentials.command.back` |
+| `/top` | Teleport to highest block above you | `mktessentials.command.top` |
+| `/rtp` | Random teleport to a safe location | `mktessentials.command.rtp` |
+| `/tpa <player>` | Request teleport to a player | `mktessentials.command.tpa` |
+| `/tpahere <player>` | Request a player teleports to you | `mktessentials.command.tpahere` |
+| `/tpaccept [player]` | Accept a teleport request | `mktessentials.command.tpa` |
+| `/tpdeny [player]` | Deny a teleport request | `mktessentials.command.tpa` |
+| `/tp <player>` | Instant teleport to player (admin) | `mktessentials.admin.tp` |
+| `/tphere <player>` | Teleport player to you (admin) | `mktessentials.admin.tp` |
+| `/tppos <x> <y> <z>` | Teleport to coordinates | `mktessentials.admin.tp` |
+| `/tpall` | Teleport all players to you | `mktessentials.admin.tpall` |
+| `/msg <player> <message>` | Send private message | `mktessentials.command.msg` |
+| `/reply <message>` | Reply to last private message | `mktessentials.command.msg` |
+| `/nick <nickname>` | Set your display name | `mktessentials.command.nick` |
+| `/recording` | Toggle recording status indicator | `mktessentials.command.recording` |
+| `/streaming` | Toggle streaming status indicator | `mktessentials.command.streaming` |
+| `/kit <name>` | Claim a kit | `mktessentials.kit.<name>` |
+| `/createkit <name> <cooldown>` | Create kit from inventory | `mktessentials.admin.kits` |
+| `/deletekit <name>` | Delete a kit | `mktessentials.admin.kits` |
+| `/heal [player]` | Restore full health | `mktessentials.admin.heal` |
+| `/feed [player]` | Restore full hunger | `mktessentials.admin.feed` |
+| `/fly [player]` | Toggle flight mode (persists) | `mktessentials.admin.fly` |
+| `/god [player]` | Toggle invulnerability (persists) | `mktessentials.admin.god` |
+| `/vanish` | Toggle invisibility (persists) | `mktessentials.admin.vanish` |
+| `/speed fly\|walk <0-10> [player]` | Set movement speed | `mktessentials.admin.speed` |
+| `/gmc [player]` | Set gamemode creative | `mktessentials.admin.gamemode` |
+| `/gms [player]` | Set gamemode survival | `mktessentials.admin.gamemode` |
+| `/gma [player]` | Set gamemode adventure | `mktessentials.admin.gamemode` |
+| `/gmsp [player]` | Set gamemode spectator | `mktessentials.admin.gamemode` |
+| `/gm <0-3> [player]` | Set gamemode by number | `mktessentials.admin.gamemode` |
+| `/invsee <player>` | View/edit player inventory (online + offline) | `mktessentials.admin.invsee` |
+| `/enderchest <player>` | View/edit player ender chest (online + offline) | `mktessentials.admin.enderchest` |
+| `/clearinv [player]` | Clear player inventory | `mktessentials.admin.clearinv` |
+| `/i <item> [amount]` | Give item to yourself | `mktessentials.admin.give` |
+| `/more` | Set held item stack to max | `mktessentials.admin.more` |
+| `/skull <player>` | Get a player head | `mktessentials.admin.skull` |
+| `/repair` | Repair held item | `mktessentials.utility.repair` |
+| `/enchant <enchantment> <level>` | Enchant held item | `mktessentials.utility.enchant` |
+| `/sudo <player> <command>` | Force player to run command | `mktessentials.admin.sudo` |
+| `/clearitems [radius]` | Remove ground items | `mktessentials.admin.clearitems` |
+| `/invbackup save <player> [note]` | Create inventory backup | `mktessentials.admin.backup` |
+| `/invbackup list <player>` | Browse backups in GUI | `mktessentials.admin.backup` |
+| `/invbackup restore <player> <file>` | Restore a backup | `mktessentials.admin.backup` |
+| `/invbackup delete <player> <file>` | Delete a backup | `mktessentials.admin.backup` |
+| `/kick <player> [reason]` | Kick player from server | `mktessentials.moderation.kick` |
+| `/ban <player> [reason]` | Permanently ban player | `mktessentials.moderation.ban` |
+| `/tempban <player> <duration> [reason]` | Temporarily ban player | `mktessentials.moderation.tempban` |
+| `/unban <player>` | Remove ban | `mktessentials.moderation.unban` |
+| `/mute <player> [duration]` | Mute player | `mktessentials.admin.mute` |
+| `/unmute <player>` | Unmute player | `mktessentials.admin.unmute` |
+| `/shadowban <player> [reason]` | Shadowban player | `mktessentials.moderation.shadowban` |
+| `/unshadowban <player>` | Remove shadowban | `mktessentials.moderation.shadowban` |
+| `/shadowbanlist` | List shadowbanned players | `mktessentials.moderation.shadowban` |
+| `/register <password> <password>` | Register account | All |
+| `/login <password>` | Login to account | All |
+| `/changepassword <old> <new> <new>` | Change password | All |
+| `/link` | Generate Discord link code | All |
+| `/unlink` | Unlink Discord account | All |
+| `/discord` | Show linked Discord info | All |
+| `/auth reset <player>` | Reset player account | `mktessentials.auth.admin.reset` |
+| `/auth unlink <player>` | Force unlink Discord | `mktessentials.auth.admin.unlink` |
+| `/auth info <player>` | Show player auth info | `mktessentials.auth.admin.info` |
+| `/near [radius]` | List nearby players (default 200) | `mktessentials.command.near` |
+| `/seen <player>` | Check when player was last online | `mktessentials.command.seen` |
+| `/ping` | Show your latency in ms | `mktessentials.command.ping` |
+| `/hat` | Put held item on your head | `mktessentials.command.hat` |
+| `/day`, `/night` | Set world time | `mktessentials.admin.time` |
+| `/sun`, `/rain` | Set weather | `mktessentials.admin.weather` |
+| `/mkt help` | Show command help | All |
+| `/mkt reload` | Reload configuration | `mktessentials.admin.reload` |
+| `/mkt permissions` | List all permission nodes | `mktessentials.admin.permissions` |
+
 ## ⚙️ Configuration
 
 YAML-based configuration in `config/mktessentials/`:
