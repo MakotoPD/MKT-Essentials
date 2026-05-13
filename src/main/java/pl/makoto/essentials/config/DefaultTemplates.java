@@ -150,6 +150,8 @@ final class DefaultTemplates {
               stacking: true
               # Radius in blocks to search for stackable items
               stacking-radius: 3
+              # Maximum stack size for ground item merging (64 = vanilla, set higher to merge more into one entity)
+              max-stack-size: 64
               # Show floating hologram above items with name and countdown
               show-hologram: true
               # Global sweep interval in seconds (0 = disabled, only individual timers)

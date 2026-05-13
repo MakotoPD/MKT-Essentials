@@ -76,6 +76,7 @@ public final class Settings {
     private static boolean itemHologramEnabled = true;
     private static int itemSweepInterval = 0; // seconds, 0 = disabled
     private static int itemSweepWarning = 30; // seconds before sweep to warn
+    private static int itemMaxStackSize = 64; // max stack size for ground item merging (64 = vanilla)
     private static List<String> itemWhitelist = List.of("minecraft:netherite_sword", "minecraft:netherite_pickaxe", "minecraft:elytra", "minecraft:shulker_box");
 
     // Commands
@@ -135,6 +136,7 @@ public final class Settings {
     public static boolean isItemHologramEnabled() { return itemHologramEnabled; }
     public static int getItemSweepInterval() { return itemSweepInterval; }
     public static int getItemSweepWarning() { return itemSweepWarning; }
+    public static int getItemMaxStackSize() { return itemMaxStackSize; }
     public static List<String> getItemWhitelist() { return itemWhitelist; }
 
     public static boolean isCommandEnabled(String commandName) {
@@ -190,6 +192,7 @@ public final class Settings {
         itemHologramEnabled = ConfigManager.getNestedValue(map, "items.show-hologram", true);
         itemSweepInterval = ConfigManager.getNestedValue(map, "items.sweep-interval", 0);
         itemSweepWarning = ConfigManager.getNestedValue(map, "items.sweep-warning", 30);
+        itemMaxStackSize = Math.max(1, (int) ConfigManager.getNestedValue(map, "items.max-stack-size", 64));
         Object whitelistObj = ConfigManager.getNestedValue(map, "items.whitelist", (Object) itemWhitelist);
         if (whitelistObj instanceof List<?> list) {
             itemWhitelist = list.stream().map(Object::toString).toList();

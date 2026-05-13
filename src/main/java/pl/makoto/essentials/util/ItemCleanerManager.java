@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import pl.makoto.essentials.MKTEssentials;
 import pl.makoto.essentials.config.I18n;
@@ -21,15 +22,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages ground item cleanup: stacking, holograms, despawn timers, and global sweep.
- * Stores direct ArmorStand references to avoid entity lookup issues.
+ * Stores direct ArmorStand and ItemEntity references to avoid entity lookup issues.
  */
 @EventBusSubscriber(modid = MKTEssentials.MODID)
 public class ItemCleanerManager {
     private static final String HOLOGRAM_TAG = "mkt_hologram";
+    private static final double HOLOGRAM_Y_OFFSET = 0.5;
 
-    // Direct reference storage — no entity ID/UUID lookup needed
     private static final Map<UUID, Long> itemSpawnTimes = new ConcurrentHashMap<>();
     private static final Map<UUID, ArmorStand> hologramRefs = new ConcurrentHashMap<>();
+    private static final Map<UUID, ItemEntity> itemRefs = new ConcurrentHashMap<>();
+
+    // Tracks ArmorStands being added to the world by this mod right now — distinguishes
+    // freshly created holograms from orphans loading from disk in unloaded chunks.
+    private static final Set<ArmorStand> pendingHolograms = ConcurrentHashMap.newKeySet();
 
     private static long tickCounter = 0;
     private static long sweepTickCounter = 0;
@@ -37,13 +43,9 @@ public class ItemCleanerManager {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        if (Settings.getItemDespawnTime() <= 0) return;
-
         tickCounter++;
-        
-        // Position update every 5 ticks (4x per second) — smooth hologram following
+
         boolean updatePositions = (tickCounter % 5 == 0);
-        // Full processing (text, despawn, stacking, new items) every 20 ticks (1x per second)
         boolean fullProcess = (tickCounter % 20 == 0);
 
         if (!updatePositions && !fullProcess) return;
@@ -56,19 +58,25 @@ public class ItemCleanerManager {
             }
             handleSweep(server);
         } else {
-            // Only update hologram positions (lightweight)
+            // Lightweight position update — O(n) via direct item references
             for (Map.Entry<UUID, ArmorStand> entry : hologramRefs.entrySet()) {
                 ArmorStand h = entry.getValue();
                 if (h == null || !h.isAlive()) continue;
-                if (!(h.level() instanceof ServerLevel sLevel)) continue;
-                // Find the item in the same level
-                for (Entity entity : sLevel.getAllEntities()) {
-                    if (entity instanceof ItemEntity item && item.getUUID().equals(entry.getKey()) && item.isAlive()) {
-                        h.moveTo(item.getX(), item.getY() - 1.0, item.getZ());
-                        break;
-                    }
-                }
+                ItemEntity item = itemRefs.get(entry.getKey());
+                if (item == null || !item.isAlive()) continue;
+                h.moveTo(item.getX(), item.getY() + HOLOGRAM_Y_OFFSET, item.getZ());
             }
+        }
+    }
+
+    // Intercepts every ArmorStand joining the level — cancels orphan holograms from previous
+    // sessions that load from disk when players enter chunks far from spawn.
+    @SubscribeEvent
+    public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
+        if (!(event.getEntity() instanceof ArmorStand stand)) return;
+        if (!stand.getTags().contains(HOLOGRAM_TAG)) return;
+        if (!pendingHolograms.contains(stand)) {
+            event.setCanceled(true);
         }
     }
 
@@ -90,6 +98,12 @@ public class ItemCleanerManager {
             // New item — register
             if (!itemSpawnTimes.containsKey(itemUuid)) {
                 itemSpawnTimes.put(itemUuid, System.currentTimeMillis());
+                itemRefs.put(itemUuid, item);
+
+                // Prevent vanilla 5-min despawn when mod controls timing or item is whitelisted
+                if (Settings.getItemDespawnTime() > 0 || isWhitelisted(item.getItem())) {
+                    item.lifespan = Integer.MAX_VALUE;
+                }
 
                 if (Settings.isItemStacking()) {
                     if (tryStackItem(item, level, allItems)) {
@@ -99,15 +113,13 @@ public class ItemCleanerManager {
                 }
             }
 
-            // Hologram: create or move existing
+            // Hologram: create or update — independent of despawn setting
             if (Settings.isItemHologramEnabled()) {
                 ArmorStand hologram = hologramRefs.get(itemUuid);
                 if (hologram != null && hologram.isAlive()) {
-                    // MOVE existing hologram
-                    hologram.moveTo(item.getX(), item.getY() - 1.0, item.getZ());
+                    hologram.moveTo(item.getX(), item.getY() + HOLOGRAM_Y_OFFSET, item.getZ());
                     hologram.setCustomName(buildHologramName(item));
                 } else {
-                    // Create new hologram
                     hologram = createHologram(item, level);
                     if (hologram != null) {
                         hologramRefs.put(itemUuid, hologram);
@@ -115,13 +127,14 @@ public class ItemCleanerManager {
                 }
             }
 
-            // Despawn check
-            if (!isWhitelisted(item.getItem())) {
+            // Despawn check — only when mod despawn is enabled and item is not whitelisted
+            if (Settings.getItemDespawnTime() > 0 && !isWhitelisted(item.getItem())) {
                 Long spawnTime = itemSpawnTimes.get(itemUuid);
                 if (spawnTime != null) {
                     long elapsed = (System.currentTimeMillis() - spawnTime) / 1000;
                     if (elapsed >= Settings.getItemDespawnTime()) {
                         discardHologram(itemUuid);
+                        itemRefs.remove(itemUuid);
                         item.discard();
                         itemSpawnTimes.remove(itemUuid);
                         activeItemUuids.remove(itemUuid);
@@ -135,17 +148,18 @@ public class ItemCleanerManager {
         while (it.hasNext()) {
             Map.Entry<UUID, ArmorStand> entry = it.next();
             ArmorStand h = entry.getValue();
-            // Only clean up holograms that belong to this level
             if (h == null || !h.isAlive()) {
                 it.remove();
                 itemSpawnTimes.remove(entry.getKey());
+                itemRefs.remove(entry.getKey());
                 continue;
             }
-            if (h.level() != level) continue; // Skip holograms from other levels
+            if (h.level() != level) continue;
             if (!activeItemUuids.contains(entry.getKey())) {
                 h.discard();
                 it.remove();
                 itemSpawnTimes.remove(entry.getKey());
+                itemRefs.remove(entry.getKey());
             }
         }
     }
@@ -165,17 +179,26 @@ public class ItemCleanerManager {
             ItemStack existingStack = existing.getItem();
             if (existingStack.isEmpty()) continue;
 
-            if (ItemStack.isSameItemSameComponents(newStack, existingStack)) {
-                int maxSize = existingStack.getMaxStackSize();
-                if (existingStack.getCount() + newStack.getCount() <= maxSize) {
-                    existingStack.setCount(existingStack.getCount() + newStack.getCount());
-                    existing.setItem(existingStack);
-                    discardHologram(newItem.getUUID());
-                    newItem.discard();
-                    itemSpawnTimes.remove(newItem.getUUID());
-                    return true;
-                }
+            if (!ItemStack.isSameItemSameComponents(newStack, existingStack)) continue;
+
+            int effectiveMax = Math.max(existingStack.getMaxStackSize(), Settings.getItemMaxStackSize());
+            int available = effectiveMax - existingStack.getCount();
+            if (available <= 0) continue;
+
+            int transfer = Math.min(newStack.getCount(), available);
+            existingStack.grow(transfer);
+            existing.setItem(existingStack);
+            newStack.shrink(transfer);
+
+            if (newStack.isEmpty()) {
+                discardHologram(newItem.getUUID());
+                itemRefs.remove(newItem.getUUID());
+                newItem.discard();
+                itemSpawnTimes.remove(newItem.getUUID());
+                return true;
             }
+            // Partial merge — newItem still has remaining count, continue looking for space
+            newItem.setItem(newStack);
         }
         return false;
     }
@@ -183,15 +206,30 @@ public class ItemCleanerManager {
     // ========== HOLOGRAM ==========
 
     private static ArmorStand createHologram(ItemEntity item, ServerLevel level) {
-        ArmorStand hologram = new ArmorStand(level, item.getX(), item.getY() - 1.5, item.getZ());
+        ArmorStand hologram = new ArmorStand(level, item.getX(), item.getY() + HOLOGRAM_Y_OFFSET, item.getZ());
         hologram.setInvisible(true);
         hologram.setNoGravity(true);
         hologram.setCustomNameVisible(true);
         hologram.setSilent(true);
+        hologram.setInvulnerable(true);
+        setMarkerFlag(hologram);
         hologram.setCustomName(buildHologramName(item));
         hologram.addTag(HOLOGRAM_TAG);
-        level.addFreshEntity(hologram);
+        pendingHolograms.add(hologram);
+        level.addFreshEntity(hologram); // fires EntityJoinLevelEvent synchronously
+        pendingHolograms.remove(hologram);
         return hologram;
+    }
+
+    // setMarker(boolean) is private in ArmorStand with no public equivalent
+    private static void setMarkerFlag(ArmorStand stand) {
+        try {
+            java.lang.reflect.Method m = ArmorStand.class.getDeclaredMethod("setMarker", boolean.class);
+            m.setAccessible(true);
+            m.invoke(stand, true);
+        } catch (ReflectiveOperationException ignored) {
+            // Falls back to invulnerable-only — hitbox exists but cannot be destroyed
+        }
     }
 
     private static void discardHologram(UUID itemUuid) {
@@ -203,10 +241,11 @@ public class ItemCleanerManager {
         ItemStack stack = item.getItem();
         String name = stack.getHoverName().getString();
         int count = stack.getCount();
+        boolean showTimer = Settings.getItemDespawnTime() > 0 && !isWhitelisted(stack);
 
-        if (isWhitelisted(stack)) {
-            if (count > 1) return Component.literal("\u00a7f\u2B26 " + name + " \u00a77x" + count);
-            return Component.literal("\u00a7f\u2B26 " + name);
+        if (!showTimer) {
+            if (count > 1) return Component.literal("§f⬦ " + name + " §7x" + count);
+            return Component.literal("§f⬦ " + name);
         }
 
         Long spawnTime = itemSpawnTimes.get(item.getUUID());
@@ -217,9 +256,9 @@ public class ItemCleanerManager {
         }
 
         if (count > 1) {
-            return Component.literal("\u00a7f\u2B26 " + name + " \u00a77x" + count + " \u00a77(\u00a7e" + remaining + "s\u00a77)");
+            return Component.literal("§f⬦ " + name + " §7x" + count + " §7(§e" + remaining + "s§7)");
         }
-        return Component.literal("\u00a7f\u2B26 " + name + " \u00a77(\u00a7e" + remaining + "s\u00a77)");
+        return Component.literal("§f⬦ " + name + " §7(§e" + remaining + "s§7)");
     }
 
     // ========== SWEEP ==========
@@ -230,7 +269,9 @@ public class ItemCleanerManager {
 
         sweepTickCounter++;
 
-        if (!sweepWarned && sweepTickCounter >= (sweepInterval - Settings.getItemSweepWarning())) {
+        // Clamp warning threshold to at least 1 to handle sweepWarning >= sweepInterval
+        int warningThreshold = Math.max(1, sweepInterval - Settings.getItemSweepWarning());
+        if (!sweepWarned && sweepTickCounter >= warningThreshold) {
             sweepWarned = true;
             long secondsLeft = sweepInterval - sweepTickCounter;
             server.getPlayerList().broadcastSystemMessage(
@@ -256,6 +297,7 @@ public class ItemCleanerManager {
             for (ItemEntity item : items) {
                 if (isWhitelisted(item.getItem())) continue;
                 discardHologram(item.getUUID());
+                itemRefs.remove(item.getUUID());
                 item.discard();
                 itemSpawnTimes.remove(item.getUUID());
                 count++;
@@ -297,6 +339,7 @@ public class ItemCleanerManager {
         }
         hologramRefs.clear();
         itemSpawnTimes.clear();
+        itemRefs.clear();
         if (total > 0) {
             MKTEssentials.LOGGER.info("Cleaned up {} orphaned item holograms.", total);
         }
@@ -313,6 +356,7 @@ public class ItemCleanerManager {
         for (ItemEntity item : items) {
             if (isWhitelisted(item.getItem())) continue;
             discardHologram(item.getUUID());
+            itemRefs.remove(item.getUUID());
             item.discard();
             itemSpawnTimes.remove(item.getUUID());
             count++;
