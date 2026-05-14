@@ -118,7 +118,7 @@ public class MKTEssentials {
 
     private void logIntegrations() {
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        LOGGER.info("  MKT Essentials v0.2.1 — Integrations");
+        LOGGER.info("  MKT Essentials v0.2.2 — Integrations");
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         LOGGER.info("  ✓ Config — YAML (config/mktessentials/)");
         LOGGER.info("  ✓ Language — {} loaded", Settings.getLanguage());

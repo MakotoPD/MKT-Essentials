@@ -25,8 +25,7 @@ public class MessageUtils {
             Component parsed = Placeholders.parseText(normalizeLegacyPlaceholders(text), ServerPlaceholderContext.of(player));
             return format(parsed.getString());
         } catch (NoClassDefFoundError e) {
-            // PlaceholderAPI not available — format without placeholders
-            return format(text);
+            return format(stripPlaceholders(text, player.getScoreboardName()));
         }
     }
 
@@ -149,6 +148,20 @@ public class MessageUtils {
             }
         }
         return sb.toString();
+    }
+
+    private static String stripPlaceholders(String text, String playerName) {
+        return text
+                .replace("%mktessentials:full_name/safe%", playerName)
+                .replace("%mktessentials:name%", playerName)
+                .replace("%mktessentials:prefix%", "")
+                .replace("%mktessentials:suffix%", "")
+                .replace("%mktessentials:dot%", "")
+                .replace("{player}", playerName)
+                .replace("{name}", playerName)
+                .replace("{prefix}", "")
+                .replace("{suffix}", "")
+                .replace("{dot}", "");
     }
 
     private static String normalizeLegacyPlaceholders(String text) {
