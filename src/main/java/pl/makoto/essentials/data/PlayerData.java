@@ -17,6 +17,8 @@ public class PlayerData {
     private boolean godMode = false;
     private boolean flyEnabled = false;
     private boolean vanished = false;
+    private float flySpeed = 0f;
+    private float walkSpeed = 0f;
     private transient Deque<SavedLocation> backStack = new ArrayDeque<>();
     private final java.util.Map<String, Long> kitCooldowns = new java.util.HashMap<>();
 
@@ -55,6 +57,12 @@ public class PlayerData {
 
     public boolean isVanished() { return vanished; }
     public void setVanished(boolean vanished) { this.vanished = vanished; }
+
+    public float getFlySpeed() { return flySpeed; }
+    public void setFlySpeed(float flySpeed) { this.flySpeed = flySpeed; }
+
+    public float getWalkSpeed() { return walkSpeed; }
+    public void setWalkSpeed(float walkSpeed) { this.walkSpeed = walkSpeed; }
     public Deque<SavedLocation> getBackStack() {
         if (backStack == null) backStack = new ArrayDeque<>();
         return backStack;

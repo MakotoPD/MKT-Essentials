@@ -110,6 +110,14 @@ public class PlayerListener {
                 player.getAbilities().mayfly = true;
                 player.onUpdateAbilities();
             }
+            if (data.getFlySpeed() > 0) {
+                player.getAbilities().setFlyingSpeed(data.getFlySpeed());
+                player.onUpdateAbilities();
+            }
+            if (data.getWalkSpeed() > 0) {
+                player.getAbilities().setWalkingSpeed(data.getWalkSpeed());
+                player.onUpdateAbilities();
+            }
             if (data.isVanished()) {
                 AdminManager.restoreVanish(player);
             }

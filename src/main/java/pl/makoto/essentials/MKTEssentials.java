@@ -60,7 +60,11 @@ public class MKTEssentials {
         if (Settings.isCommandEnabled("spawn") || Settings.isCommandEnabled("back") || Settings.isCommandEnabled("top") || Settings.isCommandEnabled("rtp")) MiscTeleportCommands.register(dispatcher);
         if (Settings.isCommandEnabled("tpa")) TpaCommands.register(dispatcher);
         if (Settings.isCommandEnabled("msg")) MessagingCommands.register(dispatcher);
-        if (Settings.isCommandEnabled("heal") || Settings.isCommandEnabled("fly") || Settings.isCommandEnabled("god")) AdminCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("heal") || Settings.isCommandEnabled("feed") || Settings.isCommandEnabled("fly")
+                || Settings.isCommandEnabled("god") || Settings.isCommandEnabled("speed")
+                || Settings.isCommandEnabled("vanish") || Settings.isCommandEnabled("clearinv")
+                || Settings.isCommandEnabled("tpall") || Settings.isCommandEnabled("invsee")
+                || Settings.isCommandEnabled("enderchest")) AdminCommands.register(dispatcher);
         if (Settings.isCommandEnabled("kit")) KitCommands.register(dispatcher);
         MKTCommand.register(dispatcher); // Always register /mkt
         if (Settings.isCommandEnabled("mute")) MuteCommands.register(dispatcher);
@@ -114,7 +118,7 @@ public class MKTEssentials {
 
     private void logIntegrations() {
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        LOGGER.info("  MKT Essentials v0.2.0 — Integrations");
+        LOGGER.info("  MKT Essentials v0.2.1 — Integrations");
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         LOGGER.info("  ✓ Config — YAML (config/mktessentials/)");
         LOGGER.info("  ✓ Language — {} loaded", Settings.getLanguage());

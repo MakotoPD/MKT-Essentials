@@ -58,12 +58,12 @@ public class AdminCommands {
         dispatcher.register(Commands.literal("speed")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.speed", 2))
                 .then(Commands.literal("fly")
-                        .then(Commands.argument("value", IntegerArgumentType.integer(0, 10))
+                        .then(Commands.argument("value", IntegerArgumentType.integer(1, 10))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> speedFly(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), IntegerArgumentType.getInteger(ctx, "value"))))
                                 .executes(ctx -> speedFly(ctx.getSource(), ctx.getSource().getPlayer(), IntegerArgumentType.getInteger(ctx, "value")))))
                 .then(Commands.literal("walk")
-                        .then(Commands.argument("value", IntegerArgumentType.integer(0, 10))
+                        .then(Commands.argument("value", IntegerArgumentType.integer(1, 10))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> speedWalk(ctx.getSource(), EntityArgument.getPlayer(ctx, "player"), IntegerArgumentType.getInteger(ctx, "value"))))
                                 .executes(ctx -> speedWalk(ctx.getSource(), ctx.getSource().getPlayer(), IntegerArgumentType.getInteger(ctx, "value"))))));
@@ -167,15 +167,24 @@ public class AdminCommands {
         float speed = value * 0.05f;
         target.getAbilities().setFlyingSpeed(speed);
         target.onUpdateAbilities();
+        PlayerData data = DataManager.getPlayerData(target.getUUID());
+        data.setFlySpeed(speed);
+        DataManager.savePlayerData(target.getUUID());
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.speed-fly", "value", String.valueOf(value), "player", target.getScoreboardName())), true);
+        if (!target.getAbilities().mayfly) {
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.speed-fly-no-fly", "player", target.getScoreboardName())), false);
+        }
         return 1;
     }
 
     private static int speedWalk(CommandSourceStack source, ServerPlayer target, int value) {
         if (target == null) return 0;
-        float speed = value * 0.05f;
+        float speed = value * 0.1f;
         target.getAbilities().setWalkingSpeed(speed);
         target.onUpdateAbilities();
+        PlayerData data = DataManager.getPlayerData(target.getUUID());
+        data.setWalkSpeed(speed);
+        DataManager.savePlayerData(target.getUUID());
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("admin.speed-walk", "value", String.valueOf(value), "player", target.getScoreboardName())), true);
         return 1;
     }
