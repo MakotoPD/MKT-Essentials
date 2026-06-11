@@ -103,6 +103,10 @@ public class ItemCleanerManager {
                 // Prevent vanilla 5-min despawn when mod controls timing or item is whitelisted
                 if (Settings.getItemDespawnTime() > 0 || isWhitelisted(item.getItem())) {
                     item.lifespan = Integer.MAX_VALUE;
+                } else if (item.lifespan == Integer.MAX_VALUE) {
+                    // Lifespan is persisted — undo the no-despawn marker left over from when
+                    // mod despawn was enabled, or the item would never despawn at all
+                    item.lifespan = 6000;
                 }
 
                 if (Settings.isItemStacking()) {
@@ -216,8 +220,11 @@ public class ItemCleanerManager {
         hologram.setCustomName(buildHologramName(item));
         hologram.addTag(HOLOGRAM_TAG);
         pendingHolograms.add(hologram);
-        level.addFreshEntity(hologram); // fires EntityJoinLevelEvent synchronously
-        pendingHolograms.remove(hologram);
+        try {
+            level.addFreshEntity(hologram); // fires EntityJoinLevelEvent synchronously
+        } finally {
+            pendingHolograms.remove(hologram);
+        }
         return hologram;
     }
 

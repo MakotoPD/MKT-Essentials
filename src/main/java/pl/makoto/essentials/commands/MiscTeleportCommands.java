@@ -35,6 +35,10 @@ public class MiscTeleportCommands {
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.spawn", 0))
                 .executes(context -> spawn(context.getSource())));
 
+        dispatcher.register(Commands.literal("setspawn")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.setspawn", 2))
+                .executes(context -> setspawn(context.getSource())));
+
         dispatcher.register(Commands.literal("back")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.back", 0))
                 .executes(context -> back(context.getSource())));
@@ -52,14 +56,33 @@ public class MiscTeleportCommands {
         ServerPlayer player = source.getPlayer();
         if (player == null) return 0;
 
+        // Custom spawn (set via /setspawn) takes precedence over the world spawn
+        PlayerData.SavedLocation custom = DataManager.getSpawn();
+        if (custom != null) {
+            TeleportManager.requestTeleport(player, custom, false);
+            return 1;
+        }
+
         ServerLevel level = player.getServer().overworld();
         BlockPos spawnPos = level.getSharedSpawnPos();
-        
+
         TeleportManager.requestTeleport(player, new PlayerData.SavedLocation(
                 level.dimension().location().toString(),
                 new Vec3(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5),
                 0, 0
         ), false);
+        return 1;
+    }
+
+    private static int setspawn(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return 0;
+
+        DataManager.setSpawn(new PlayerData.SavedLocation(
+                player.level().dimension().location().toString(),
+                player.position(), player.getYRot(), player.getXRot()
+        ));
+        source.sendSuccess(() -> MessageUtils.prefixed("&aServer spawn set to your current location."), true);
         return 1;
     }
 

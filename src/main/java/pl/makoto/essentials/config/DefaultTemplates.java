@@ -125,6 +125,10 @@ final class DefaultTemplates {
               # internal-error: Kicks after 2-3 seconds with fake internal error
               # phantom: Player joins but is invisible to others, chat hidden
               shadowban-method: "timeout"
+              # Active warns (/warn) that trigger an automatic tempban (0 = no escalation)
+              max-warns: 3
+              # Tempban duration applied when the warn limit is reached (e.g. 1d, 12h, 30m)
+              warn-ban-duration: "1d"
 
             discord:
               # Enable the embedded Discord bot
@@ -217,7 +221,9 @@ final class DefaultTemplates {
             moderation:
               kick: true      # /kick <player> [reason]
               ban: true       # /ban, /tempban, /unban
-              mute: true      # /mute, /unmute
+              banip: true     # /banip, /unbanip
+              mute: true      # /mute, /unmute, /tempmute
+              warn: true      # /warn, /unwarn, /warns, /history
               shadowban: true  # /shadowban, /unshadowban, /shadowbanlist
 
             # ============================================
@@ -226,10 +232,17 @@ final class DefaultTemplates {
             utility:
               repair: true    # /repair
               enchant: true   # /enchant <enchantment> <level>
-              kit: true       # /kit, /createkit, /deletekit
+              exp: true       # /exp give|set <player> <levels>
+              kit: true       # /kit, /kits, /createkit, /deletekit
               nick: true      # /nick [nickname]
-              msg: true       # /msg, /reply
+              msg: true       # /msg, /reply, /msgtoggle, /ignore
               shortcuts: true # /gm, /gmc, /gms, /gma, /gmsp, /tp, /tphere, /tppos, /i, /more, /skull, /near, /seen, /sudo
+              whois: true     # /whois <player>
+              playtime: true  # /playtime [player]
+              stations: true  # /trash, /workbench, /craft, /anvil, /grindstone, /stonecutter, /smithing
+              ptime: true     # /ptime, /pweather (per-player client time/weather)
+              helpop: true    # /helpop, /report
+              tps: true       # /tps, /lag
             """;
 
     static final String MESSAGES_YML = """
@@ -271,6 +284,8 @@ final class DefaultTemplates {
             #  Automated Broadcasts
             # ============================================
             broadcast:
+              # Enable automated broadcasts
+              enabled: true
               # Interval between broadcasts in seconds
               interval: 300
               # Prefix prepended to each broadcast message
@@ -282,6 +297,34 @@ final class DefaultTemplates {
                 - "&7Welcome to our server!"
                 - "&7Join our Discord: &b/discord"
                 - "&7Use &6/rtp &7to start your adventure!"
+
+            # ============================================
+            #  Text Commands
+            # ============================================
+            # Custom commands that print configured text. Each entry can define
+            # multiple aliases (e.g. "rules" and "zasady") and multiple lines.
+            # Aliases that collide with existing commands are skipped.
+            # Changes require a server restart (commands are registered at startup).
+            text-commands:
+              rules:
+                aliases: ["rules", "zasady"]
+                messages:
+                  - "&6--- &eServer Rules &6---"
+                  - "&71. Be respectful to other players."
+                  - "&72. No griefing or stealing."
+                  - "&73. No cheating or exploiting bugs."
+              www:
+                aliases: ["www", "website"]
+                messages:
+                  - "&bOur website: &fhttps://example.com"
+              vote:
+                aliases: ["vote", "glosuj"]
+                messages:
+                  - "&aVote for our server: &fhttps://example.com/vote"
+              discord-invite:
+                aliases: ["discordinvite", "dc"]
+                messages:
+                  - "&9Join our Discord: &fhttps://discord.gg/yourcode"
             """;
 
     static final String LANG_EN_US = """
@@ -394,6 +437,7 @@ final class DefaultTemplates {
               passwords-dont-match: "&cPasswords do not match."
               frozen-reminder: "&7Please authenticate to continue playing."
               kicked-timeout: "&cYou were kicked for not authenticating within {seconds} seconds."
+              kicked-max-attempts: "&cToo many failed login attempts ({max}). Try again in a few minutes."
               newbie-protection: "&aYou have newbie protection for &6{minutes} &aminutes."
               password-changed: "&aPassword changed successfully."
               wrong-old-password: "&cThe old password is incorrect."
@@ -555,6 +599,7 @@ final class DefaultTemplates {
               passwords-dont-match: "&cHasla nie sa identyczne."
               frozen-reminder: "&7Prosze sie uwierzytelnic, aby kontynuowac gre."
               kicked-timeout: "&cZostales wyrzucony za brak uwierzytelnienia w ciagu {seconds} sekund."
+              kicked-max-attempts: "&cZbyt wiele nieudanych prob logowania ({max}). Sprobuj ponownie za kilka minut."
               newbie-protection: "&aMasz ochrone dla nowych graczy przez &6{minutes} &aminut."
               password-changed: "&aHaslo zostalo zmienione pomyslnie."
               wrong-old-password: "&cStare haslo jest nieprawidlowe."

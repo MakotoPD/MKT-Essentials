@@ -37,25 +37,57 @@ public class MKTCommand {
 
         // Teleportation — always visible
         source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Teleportation"), false);
-        source.sendSuccess(() -> MessageUtils.format("   &7/home, /sethome, /delhome, /homes"), false);
-        source.sendSuccess(() -> MessageUtils.format("   &7/warp, /setwarp, /delwarp, /warps"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/home, /sethome, /delhome, /listhomes"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/warp, /setwarp, /delwarp, /warps, /listwarps"), false);
         source.sendSuccess(() -> MessageUtils.format("   &7/spawn, /back, /rtp, /top"), false);
         source.sendSuccess(() -> MessageUtils.format("   &7/tpa, /tpahere, /tpaccept, /tpdeny"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/tpacancel, /tptoggle"), false);
         source.sendSuccess(() -> MessageUtils.format(""), false);
 
         // Communication — always visible
         source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Communication"), false);
         source.sendSuccess(() -> MessageUtils.format("   &7/msg <player> <message>, /reply <message>"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/msgtoggle, /ignore <player>, /afk"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/helpop <message>, /report <player> <reason>"), false);
         source.sendSuccess(() -> MessageUtils.format("   &7/nick <nickname>, /recording, /streaming"), false);
         source.sendSuccess(() -> MessageUtils.format(""), false);
 
         // Utility — always visible
         source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Utility"), false);
-        source.sendSuccess(() -> MessageUtils.format("   &7/kit <name>, /hat, /ping, /near, /seen"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/kit <name>, /kits, /hat, /ping, /near, /seen"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/trash, /workbench (/craft), /anvil, /grindstone"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/stonecutter, /smithing, /kickme"), false);
+        source.sendSuccess(() -> MessageUtils.format("   &7/playtime, /tps, /ptime, /pweather"), false);
+        // Text commands are config-defined — list the first alias of each
+        String textCmds = pl.makoto.essentials.config.Settings.getTextCommands().stream()
+                .map(tc -> "/" + tc.aliases().get(0))
+                .collect(java.util.stream.Collectors.joining(", "));
+        if (!textCmds.isEmpty()) {
+            final String line = "   &7" + textCmds;
+            source.sendSuccess(() -> MessageUtils.format(line), false);
+        }
         if (isAdmin) {
             source.sendSuccess(() -> MessageUtils.format("   &7/repair, /enchant <enchantment> <level>"), false);
         }
         source.sendSuccess(() -> MessageUtils.format(""), false);
+
+        // Account — only when the auth system is enabled
+        var authMode = pl.makoto.essentials.config.Settings.getAuthMode();
+        if (authMode != pl.makoto.essentials.auth.AuthMode.DISABLED) {
+            source.sendSuccess(() -> MessageUtils.format(" &e⬡ &6Account"), false);
+            if (authMode.requiresPassword()) {
+                source.sendSuccess(() -> MessageUtils.format("   &7/register <password> <confirm>, /login <password>"), false);
+                source.sendSuccess(() -> MessageUtils.format("   &7/changepassword <old> <new> <confirm>"), false);
+            }
+            if (authMode.requiresLink() || authMode == pl.makoto.essentials.auth.AuthMode.OPTIONAL) {
+                source.sendSuccess(() -> MessageUtils.format("   &7/link, /unlink"), false);
+            }
+            source.sendSuccess(() -> MessageUtils.format("   &7/discord"), false);
+            if (isAdmin) {
+                source.sendSuccess(() -> MessageUtils.format("   &7/auth reset|unlink|info <player>"), false);
+            }
+            source.sendSuccess(() -> MessageUtils.format(""), false);
+        }
 
         // Admin — only for admins
         if (isAdmin) {
@@ -64,10 +96,13 @@ public class MKTCommand {
             source.sendSuccess(() -> MessageUtils.format("   &7/speed fly|walk <0-10>, /clearinv"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/tpall, /invsee <player>, /enderchest <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/invbackup save|list|restore|delete"), false);
-            source.sendSuccess(() -> MessageUtils.format("   &7/day, /night, /sun, /rain"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/day, /noon, /night, /midnight, /sun, /rain, /storm"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/gm, /gmc, /gms, /gma, /gmsp, /tp, /tphere, /tppos"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/i <item> [amount], /more, /skull, /sudo"), false);
-            source.sendSuccess(() -> MessageUtils.format("   &7/clearitems [radius]"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/clearitems [radius], /setspawn, /lag"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/whois <player>, /exp give|set <player> <levels>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/createkit <name> <cooldown> [frominv], /deletekit <name>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/socialspy, /broadcast <message>"), false);
             source.sendSuccess(() -> MessageUtils.format(""), false);
         }
 
@@ -76,8 +111,11 @@ public class MKTCommand {
             source.sendSuccess(() -> MessageUtils.format(" &c⬡ &4Moderation"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/kick <player> [reason]"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/ban <player> [reason], /tempban <player> <duration> [reason]"), false);
-            source.sendSuccess(() -> MessageUtils.format("   &7/unban <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/unban <player>, /banip <player|ip> [reason], /unbanip <ip>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/mute <player> [duration], /unmute <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/tempmute <player> <duration> [reason]"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/warn <player> [reason], /unwarn <player>"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/warns <player>, /history <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/shadowban <player> [reason], /unshadowban <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/shadowbanlist"), false);
             source.sendSuccess(() -> MessageUtils.format(""), false);
@@ -119,7 +157,24 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.skull"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.sudo"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.clearitems"), false);
-        
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.setspawn"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.whois"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.playtime"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.exp"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.lag"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.helpop &8(receive /helpop and /report)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.msgbypass"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.tptoggle.bypass"), false);
+
+        source.sendSuccess(() -> MessageUtils.format("&7Moderation nodes:"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.kick"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.ban"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.tempban"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.unban"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.banip"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.warn"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.moderation.history"), false);
+
         source.sendSuccess(() -> MessageUtils.format("&7Kit nodes:"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.kit.<name>"), false);
         
@@ -143,6 +198,23 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.near"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.seen"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.kickme"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.tptoggle"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.msgtoggle"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.ignore"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.afk"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.playtime"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.trash"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.workbench"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.anvil"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.grindstone"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.stonecutter"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.smithing"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.ptime"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.pweather"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.helpop"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.report"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.tps"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.command.text.<name>"), false);
         source.sendSuccess(() -> MessageUtils.format("&8&m                                           "), false);
         
         return 1;

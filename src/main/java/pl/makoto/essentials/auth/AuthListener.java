@@ -20,6 +20,11 @@ public final class AuthListener {
         if (Settings.getAuthMode() == AuthMode.DISABLED) return;
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        // Freeze immediately — handleJoin runs a tick later and every path that authenticates
+        // (valid session, OPTIONAL mode) unfreezes via markAuthenticated. Without this the
+        // player has a 1-tick window to act before being frozen.
+        FreezeManager.freeze(player);
+
         // Delay by 1 tick to ensure player is fully initialized
         player.getServer().tell(new TickTask(player.getServer().getTickCount() + 1, () -> {
             if (player.getServer().getPlayerList().getPlayer(player.getUUID()) == null) return;

@@ -21,6 +21,16 @@ public class PlayerData {
     private float walkSpeed = 0f;
     private transient Deque<SavedLocation> backStack = new ArrayDeque<>();
     private final java.util.Map<String, Long> kitCooldowns = new java.util.HashMap<>();
+    // Gson skips field initializers when deserializing (no no-arg constructor), so new
+    // booleans are stored inverted — a missing field defaults to false = feature enabled.
+    private boolean msgDisabled = false;
+    private boolean tpaDisabled = false;
+    private java.util.Set<String> ignoredPlayers = new java.util.HashSet<>();
+    private long playTimeMillis = 0;
+    private long firstJoinAt = 0;
+    private long lastSeenAt = 0;
+    private String lastIp;
+    private transient long sessionStartMs = 0;
 
     public PlayerData(UUID uuid) {
         this.uuid = uuid;
@@ -79,6 +89,57 @@ public class PlayerData {
     public SavedLocation popBackLocation() {
         if (backStack == null || backStack.isEmpty()) return null;
         return backStack.removeLast();
+    }
+
+    public boolean isMsgDisabled() { return msgDisabled; }
+    public void setMsgDisabled(boolean msgDisabled) { this.msgDisabled = msgDisabled; }
+
+    public boolean isTpaDisabled() { return tpaDisabled; }
+    public void setTpaDisabled(boolean tpaDisabled) { this.tpaDisabled = tpaDisabled; }
+
+    private java.util.Set<String> ignored() {
+        if (ignoredPlayers == null) ignoredPlayers = new java.util.HashSet<>();
+        return ignoredPlayers;
+    }
+
+    public boolean isIgnoring(UUID other) {
+        return ignored().contains(other.toString());
+    }
+
+    /** @return true if the player is now ignored, false if un-ignored */
+    public boolean toggleIgnore(UUID other) {
+        String key = other.toString();
+        if (!ignored().remove(key)) {
+            ignored().add(key);
+            return true;
+        }
+        return false;
+    }
+
+    public long getFirstJoinAt() { return firstJoinAt; }
+    public long getLastSeenAt() { return lastSeenAt; }
+    public String getLastIp() { return lastIp; }
+
+    public void startSession(long now, String ip) {
+        sessionStartMs = now;
+        lastSeenAt = now;
+        lastIp = ip;
+        if (firstJoinAt == 0) firstJoinAt = now;
+    }
+
+    public void endSession(long now) {
+        if (sessionStartMs > 0) {
+            playTimeMillis += Math.max(0, now - sessionStartMs);
+            sessionStartMs = 0;
+        }
+        lastSeenAt = now;
+    }
+
+    /** Total play time including the current session (if online). */
+    public long getTotalPlayTimeMillis() {
+        long total = playTimeMillis;
+        if (sessionStartMs > 0) total += Math.max(0, System.currentTimeMillis() - sessionStartMs);
+        return total;
     }
 
     public static class SavedLocation {

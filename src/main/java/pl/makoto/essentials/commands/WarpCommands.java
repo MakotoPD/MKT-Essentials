@@ -36,6 +36,18 @@ public class WarpCommands {
         dispatcher.register(Commands.literal("listwarps")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.listwarps", 0))
                 .executes(context -> listwarps(context.getSource())));
+
+        // GUI list — players get a clickable menu, console falls back to text
+        dispatcher.register(Commands.literal("warps")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.listwarps", 0))
+                .executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayer();
+                    if (player != null) {
+                        pl.makoto.essentials.util.WarpsMenu.open(player);
+                        return 1;
+                    }
+                    return listwarps(context.getSource());
+                }));
     }
 
     private static int setwarp(CommandSourceStack source, String name) {

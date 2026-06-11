@@ -45,6 +45,22 @@ public class TpaManager {
         return list;
     }
 
+    /** Removes all pending requests sent by the given player. @return how many were cancelled */
+    public static int cancelRequestsFrom(UUID senderUuid) {
+        int[] cancelled = {0};
+        requests.entrySet().removeIf(e -> {
+            e.getValue().removeIf(r -> {
+                if (r.senderUuid().equals(senderUuid)) {
+                    cancelled[0]++;
+                    return true;
+                }
+                return false;
+            });
+            return e.getValue().isEmpty();
+        });
+        return cancelled[0];
+    }
+
     public static void cleanupPlayer(UUID uuid) {
         requests.remove(uuid);
         requests.entrySet().removeIf(e -> {

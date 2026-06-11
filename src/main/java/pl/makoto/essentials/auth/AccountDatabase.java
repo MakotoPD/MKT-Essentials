@@ -73,9 +73,20 @@ public final class AccountDatabase {
         }
     }
 
+    // Init may have failed (e.g. unwritable config dir) — guard every query so a null
+    // connection degrades to a logged error instead of an NPE that breaks join handling.
+    private static boolean unavailable() {
+        if (connection == null) {
+            MKTEssentials.LOGGER.error("AccountDatabase is not initialized — query skipped.");
+            return true;
+        }
+        return false;
+    }
+
     // ─── Account CRUD ──────────────────────────────────────────────────────────
 
     public static AccountRecord getAccount(UUID uuid) {
+        if (unavailable()) return null;
         try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT mc_uuid, password_hash, discord_id, mc_name, registered_at, last_login, last_ip FROM accounts WHERE mc_uuid = ?")) {
             ps.setString(1, uuid.toString());
@@ -98,6 +109,7 @@ public final class AccountDatabase {
     }
 
     public static void createAccount(UUID uuid, String passwordHash, String mcName, String ip) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO accounts (mc_uuid, password_hash, discord_id, mc_name, registered_at, last_login, last_ip) VALUES (?, ?, NULL, ?, ?, ?, ?)")) {
             long now = System.currentTimeMillis();
@@ -114,6 +126,7 @@ public final class AccountDatabase {
     }
 
     public static void updatePasswordHash(UUID uuid, String newHash) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "UPDATE accounts SET password_hash = ? WHERE mc_uuid = ?")) {
             ps.setString(1, newHash);
@@ -125,6 +138,7 @@ public final class AccountDatabase {
     }
 
     public static void updateDiscordId(UUID uuid, String discordId) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "UPDATE accounts SET discord_id = ? WHERE mc_uuid = ?")) {
             ps.setString(1, discordId);
@@ -136,6 +150,7 @@ public final class AccountDatabase {
     }
 
     public static void updateLastLogin(UUID uuid, String ip) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "UPDATE accounts SET last_login = ?, last_ip = ? WHERE mc_uuid = ?")) {
             ps.setLong(1, System.currentTimeMillis());
@@ -148,6 +163,7 @@ public final class AccountDatabase {
     }
 
     public static AccountRecord getAccountByDiscordId(String discordId) {
+        if (unavailable()) return null;
         try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT mc_uuid, password_hash, discord_id, mc_name, registered_at, last_login, last_ip FROM accounts WHERE discord_id = ?")) {
             ps.setString(1, discordId);
@@ -170,6 +186,7 @@ public final class AccountDatabase {
     }
 
     public static void deleteAccount(UUID uuid) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM accounts WHERE mc_uuid = ?")) {
             ps.setString(1, uuid.toString());
             ps.executeUpdate();
@@ -181,6 +198,7 @@ public final class AccountDatabase {
     // ─── Session CRUD ──────────────────────────────────────────────────────────
 
     public static SessionRecord getSession(UUID uuid) {
+        if (unavailable()) return null;
         try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT mc_uuid, session_ip, expires_at FROM sessions WHERE mc_uuid = ? AND expires_at > ?")) {
             ps.setString(1, uuid.toString());
@@ -200,6 +218,7 @@ public final class AccountDatabase {
     }
 
     public static void createOrUpdateSession(UUID uuid, String ip, long expiresAt) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT OR REPLACE INTO sessions (mc_uuid, session_ip, expires_at) VALUES (?, ?, ?)")) {
             ps.setString(1, uuid.toString());
@@ -212,6 +231,7 @@ public final class AccountDatabase {
     }
 
     public static void deleteExpiredSessions() {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM sessions WHERE expires_at <= ?")) {
             ps.setLong(1, System.currentTimeMillis());
             int deleted = ps.executeUpdate();
@@ -224,6 +244,7 @@ public final class AccountDatabase {
     }
 
     public static void deleteSession(UUID uuid) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM sessions WHERE mc_uuid = ?")) {
             ps.setString(1, uuid.toString());
             ps.executeUpdate();
@@ -235,6 +256,7 @@ public final class AccountDatabase {
     // ─── Link Code CRUD ────────────────────────────────────────────────────────
 
     public static void createLinkCode(String code, UUID uuid, long expiresAt) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
                 "INSERT INTO link_codes (code, mc_uuid, created_at, expires_at) VALUES (?, ?, ?, ?)")) {
             ps.setString(1, code);
@@ -248,6 +270,7 @@ public final class AccountDatabase {
     }
 
     public static LinkCodeRecord getLinkCode(String code) {
+        if (unavailable()) return null;
         try (PreparedStatement ps = connection.prepareStatement(
                 "SELECT code, mc_uuid, created_at, expires_at FROM link_codes WHERE code = ? AND expires_at > ?")) {
             ps.setString(1, code);
@@ -268,6 +291,7 @@ public final class AccountDatabase {
     }
 
     public static void deleteLinkCode(String code) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM link_codes WHERE code = ?")) {
             ps.setString(1, code);
             ps.executeUpdate();
@@ -277,6 +301,7 @@ public final class AccountDatabase {
     }
 
     public static void deleteCodesForPlayer(UUID uuid) {
+        if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM link_codes WHERE mc_uuid = ?")) {
             ps.setString(1, uuid.toString());
             ps.executeUpdate();

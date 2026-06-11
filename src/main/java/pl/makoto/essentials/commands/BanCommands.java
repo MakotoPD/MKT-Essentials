@@ -77,6 +77,7 @@ public class BanCommands {
 
         String issuerName = source.getTextName();
         BanManager.ban(uuid, playerName, reason, issuerName);
+        pl.makoto.essentials.util.PunishmentManager.record(uuid, "ban", reason, issuerName, 0);
 
         // Disconnect if online
         if (onlineTarget != null) {
@@ -115,6 +116,7 @@ public class BanCommands {
         String issuerName = source.getTextName();
         long expiration = System.currentTimeMillis() + duration;
         BanManager.tempBan(uuid, playerName, reason, issuerName, expiration);
+        pl.makoto.essentials.util.PunishmentManager.record(uuid, "tempban", reason, issuerName, duration);
 
         // Disconnect if online
         if (onlineTarget != null) {

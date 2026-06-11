@@ -30,14 +30,25 @@ public class KitCommands {
         );
 
         dispatcher.register(Commands.literal("kits")
-            .executes(context -> listKits(context.getSource()))
+            .executes(context -> {
+                // Players get a clickable GUI, console gets a text list
+                if (context.getSource().getPlayer() instanceof ServerPlayer player) {
+                    pl.makoto.essentials.util.KitsMenu.open(player);
+                    return 1;
+                }
+                return listKits(context.getSource());
+            })
         );
 
         dispatcher.register(Commands.literal("createkit")
             .requires(s -> Permissions.hasPermission(s, "mktessentials.admin.kits", 2))
             .then(Commands.argument("name", StringArgumentType.word())
                 .then(Commands.argument("cooldown", LongArgumentType.longArg(0))
-                    .executes(context -> createKit(context.getSource(), StringArgumentType.getString(context, "name"), LongArgumentType.getLong(context, "cooldown")))))
+                    // Default: open a chest GUI to compose the kit contents
+                    .executes(context -> createKitGui(context.getSource(), StringArgumentType.getString(context, "name"), LongArgumentType.getLong(context, "cooldown")))
+                    // Legacy variant: snapshot the creator's main inventory
+                    .then(Commands.literal("frominv")
+                        .executes(context -> createKit(context.getSource(), StringArgumentType.getString(context, "name"), LongArgumentType.getLong(context, "cooldown"))))))
         );
 
         dispatcher.register(Commands.literal("deletekit")
@@ -53,7 +64,11 @@ public class KitCommands {
 
     private static int claimKit(CommandSourceStack source, String name) {
         if (!(source.getEntity() instanceof ServerPlayer player)) return 0;
+        return claim(player, name);
+    }
 
+    /** Shared claim logic used by the /kit command and the kits GUI. */
+    public static int claim(ServerPlayer player, String name) {
         KitData kit = DataManager.getKit(name);
         if (kit == null) {
             player.sendSystemMessage(MessageUtils.format("&cKit '" + name + "' does not exist."));
@@ -106,6 +121,12 @@ public class KitCommands {
             .collect(Collectors.joining("&r, &6"));
 
         source.sendSuccess(() -> MessageUtils.format("&aAvailable kits: &6" + kitList), false);
+        return 1;
+    }
+
+    private static int createKitGui(CommandSourceStack source, String name, long cooldown) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) return 0;
+        pl.makoto.essentials.util.KitCreateMenu.open(player, name, cooldown);
         return 1;
     }
 

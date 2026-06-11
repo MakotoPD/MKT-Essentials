@@ -45,17 +45,22 @@ public class DurationParser {
         long totalMillis = 0;
         Matcher matcher = DURATION_PATTERN.matcher(normalized);
 
-        while (matcher.find()) {
-            long value = Long.parseLong(matcher.group(1));
-            String unit = matcher.group(2);
+        try {
+            while (matcher.find()) {
+                long value = Long.parseLong(matcher.group(1));
+                String unit = matcher.group(2);
 
-            totalMillis += switch (unit) {
-                case "d" -> value * DAYS_MS;
-                case "h" -> value * HOURS_MS;
-                case "m" -> value * MINUTES_MS;
-                case "s" -> value * SECONDS_MS;
-                default -> throw new IllegalArgumentException("Unknown duration unit: " + unit);
-            };
+                totalMillis = Math.addExact(totalMillis, switch (unit) {
+                    case "d" -> Math.multiplyExact(value, DAYS_MS);
+                    case "h" -> Math.multiplyExact(value, HOURS_MS);
+                    case "m" -> Math.multiplyExact(value, MINUTES_MS);
+                    case "s" -> Math.multiplyExact(value, SECONDS_MS);
+                    default -> throw new IllegalArgumentException("Unknown duration unit: " + unit);
+                });
+            }
+        } catch (ArithmeticException e) {
+            // Overflow would silently turn into a negative (= already expired) duration
+            throw new IllegalArgumentException("Duration is too large: '" + input + "'");
         }
 
         return totalMillis;

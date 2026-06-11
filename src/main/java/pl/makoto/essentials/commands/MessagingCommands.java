@@ -45,6 +45,15 @@ public class MessagingCommands {
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.socialspy", 2))
                 .executes(context -> socialspy(context.getSource())));
 
+        dispatcher.register(Commands.literal("msgtoggle")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.msgtoggle", 0))
+                .executes(context -> msgtoggle(context.getSource())));
+
+        dispatcher.register(Commands.literal("ignore")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.ignore", 0))
+                .then(Commands.argument("player", EntityArgument.player())
+                        .executes(context -> ignore(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+
         dispatcher.register(Commands.literal("broadcast")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.broadcast", 2))
                 .then(Commands.argument("message", StringArgumentType.greedyString())
@@ -80,6 +89,21 @@ public class MessagingCommands {
     }
 
     private static void sendMessage(ServerPlayer sender, ServerPlayer target, String message) {
+        // Respect /msgtoggle and /ignore unless the sender is staff
+        if (!sender.getUUID().equals(target.getUUID())
+                && !Permissions.hasPermission(sender, "mktessentials.admin.msgbypass", 2)) {
+            pl.makoto.essentials.data.PlayerData targetData =
+                    pl.makoto.essentials.data.DataManager.getPlayerData(target.getUUID());
+            if (targetData.isMsgDisabled()) {
+                sender.sendSystemMessage(MessageUtils.prefixed("&c" + target.getScoreboardName() + " has private messages disabled."));
+                return;
+            }
+            if (targetData.isIgnoring(sender.getUUID())) {
+                sender.sendSystemMessage(MessageUtils.prefixed("&c" + target.getScoreboardName() + " is ignoring you."));
+                return;
+            }
+        }
+
         if (sender.getUUID().equals(target.getUUID())) {
             if (net.neoforged.fml.loading.FMLLoader.isProduction()) {
                 sender.sendSystemMessage(MessageUtils.prefixed("&cYou cannot message yourself!"));
@@ -120,6 +144,40 @@ public class MessagingCommands {
             socialSpy.add(player.getUUID());
             source.sendSuccess(() -> MessageUtils.prefixed("&7Social Spy &aenabled&7."), true);
         }
+        return 1;
+    }
+
+    private static int msgtoggle(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return 0;
+
+        var data = pl.makoto.essentials.data.DataManager.getPlayerData(player.getUUID());
+        boolean nowDisabled = !data.isMsgDisabled();
+        data.setMsgDisabled(nowDisabled);
+        pl.makoto.essentials.data.DataManager.savePlayerData(player.getUUID());
+
+        source.sendSuccess(() -> MessageUtils.prefixed(nowDisabled
+                ? "&7Private messages are now &cblocked&7."
+                : "&7Private messages are now &aallowed&7."), false);
+        return 1;
+    }
+
+    private static int ignore(CommandSourceStack source, ServerPlayer target) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return 0;
+
+        if (player.getUUID().equals(target.getUUID())) {
+            source.sendFailure(MessageUtils.prefixed("&cYou cannot ignore yourself."));
+            return 0;
+        }
+
+        var data = pl.makoto.essentials.data.DataManager.getPlayerData(player.getUUID());
+        boolean nowIgnored = data.toggleIgnore(target.getUUID());
+        pl.makoto.essentials.data.DataManager.savePlayerData(player.getUUID());
+
+        source.sendSuccess(() -> MessageUtils.prefixed(nowIgnored
+                ? "&7You are now ignoring &6" + target.getScoreboardName() + "&7 (chat and private messages)."
+                : "&7You are no longer ignoring &6" + target.getScoreboardName() + "&7."), false);
         return 1;
     }
 

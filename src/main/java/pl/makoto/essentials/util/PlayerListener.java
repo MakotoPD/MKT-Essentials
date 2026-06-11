@@ -37,6 +37,17 @@ public class PlayerListener {
 
         UUID uuid = player.getUUID();
 
+        // IP ban check
+        String ip = IpBanManager.getPlayerIp(player);
+        if (IpBanManager.isBanned(ip)) {
+            IpBanManager.IpBanEntry ipBan = IpBanManager.getBan(ip);
+            player.connection.disconnect(MessageUtils.format(
+                "&c&lYou are IP banned from this server.\n\n&7Reason: &f" + ipBan.reason
+                + "\n&7Banned by: &f" + ipBan.issuer
+            ));
+            return;
+        }
+
         // Shadowban check — BEFORE ban check so shadowban takes priority
         if (ShadowBanManager.isShadowBanned(uuid)) {
             String method = Settings.getShadowbanMethod();
@@ -103,6 +114,8 @@ public class PlayerListener {
 
             // Restore persisted states from PlayerData
             PlayerData data = DataManager.getPlayerData(player.getUUID());
+            // Playtime session + last known IP (used by /whois, /playtime, /banip)
+            data.startSession(System.currentTimeMillis(), IpBanManager.getPlayerIp(player));
             if (data.isGodMode()) {
                 player.setInvulnerable(true);
             }
@@ -150,10 +163,16 @@ public class PlayerListener {
 
         READY_PLAYERS.remove(player.getUUID());
 
+        // Close the playtime session before the data is saved/evicted below
+        DataManager.getPlayerData(player.getUUID()).endSession(System.currentTimeMillis());
+
         // Clean up player-specific state to prevent memory leaks
         AFKManager.removePlayer(player.getUUID());
         MessagingCommands.cleanupPlayer(player.getUUID());
         TpaManager.cleanupPlayer(player.getUUID());
+        TeleportManager.cleanupPlayer(player.getUUID());
+        PlayerEnvironmentManager.cleanupPlayer(player.getUUID());
+        pl.makoto.essentials.commands.ReportCommands.cleanupPlayer(player.getUUID());
         AdminManager.cleanupOnDisconnect(player.getUUID());
         ShadowBanManager.removePhantom(player.getUUID());
 
@@ -276,12 +295,33 @@ public class PlayerListener {
 
         // Combine prefix (with hover) and formatted message
         Component finalMsg = prefixWithHover.copy().append(formattedMessage);
-        
-        // Broadcast to all players
-        player.getServer().getPlayerList().broadcastSystemMessage(finalMsg, false);
-        
+
+        // Send to each player individually so /ignore can filter chat
+        for (ServerPlayer viewer : player.getServer().getPlayerList().getPlayers()) {
+            if (!viewer.getUUID().equals(player.getUUID())
+                    && DataManager.getPlayerData(viewer.getUUID()).isIgnoring(player.getUUID())) {
+                continue;
+            }
+            viewer.sendSystemMessage(finalMsg);
+        }
+
         // Log to console manually since we cancelled the event
         MKTEssentials.LOGGER.info("[Chat] " + finalMsg.getString());
+    }
+
+    /**
+     * Records the death location so /back can return the player to where they died.
+     */
+    @SubscribeEvent
+    public static void onPlayerDeath(net.neoforged.neoforge.event.entity.living.LivingDeathEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        PlayerData data = DataManager.getPlayerData(player.getUUID());
+        data.pushBackLocation(new PlayerData.SavedLocation(
+                player.level().dimension().location().toString(),
+                player.position(), player.getYRot(), player.getXRot()
+        ));
+        player.sendSystemMessage(MessageUtils.prefixed("&7Use &6/back &7to return to your death location."));
     }
 
     @SubscribeEvent

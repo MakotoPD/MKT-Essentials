@@ -4,13 +4,13 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
 import pl.makoto.essentials.auth.AccountDatabase;
 import pl.makoto.essentials.auth.AuthManager;
 import pl.makoto.essentials.auth.AuthMode;
 import pl.makoto.essentials.config.I18n;
 import pl.makoto.essentials.config.Settings;
+import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
 
@@ -97,21 +97,21 @@ public final class AuthCommands {
         dispatcher.register(Commands.literal("auth")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.auth.admin", 3))
                 .then(Commands.literal("reset")
-                        .then(Commands.argument("target", EntityArgument.player())
+                        .then(Commands.argument("target", StringArgumentType.word())
                                 .executes(ctx -> {
-                                    ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                                    String target = StringArgumentType.getString(ctx, "target");
                                     return handleAdminReset(ctx.getSource(), target);
                                 })))
                 .then(Commands.literal("unlink")
-                        .then(Commands.argument("target", EntityArgument.player())
+                        .then(Commands.argument("target", StringArgumentType.word())
                                 .executes(ctx -> {
-                                    ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                                    String target = StringArgumentType.getString(ctx, "target");
                                     return handleAdminUnlink(ctx.getSource(), target);
                                 })))
                 .then(Commands.literal("info")
-                        .then(Commands.argument("target", EntityArgument.player())
+                        .then(Commands.argument("target", StringArgumentType.word())
                                 .executes(ctx -> {
-                                    ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                                    String target = StringArgumentType.getString(ctx, "target");
                                     return handleAdminInfo(ctx.getSource(), target);
                                 }))));
     }
@@ -136,7 +136,7 @@ public final class AuthCommands {
         switch (result) {
             case SUCCESS -> player.sendSystemMessage(MessageUtils.prefixed(I18n.get("auth.login-success")));
             case WRONG_PASSWORD -> {
-                int attempts = AuthManager.getLoginAttempts(player.getUUID());
+                int attempts = AuthManager.getLoginAttempts(player);
                 player.sendSystemMessage(MessageUtils.prefixed(I18n.get("auth.login-failed",
                         "attempts", String.valueOf(attempts),
                         "max", String.valueOf(Settings.getMaxLoginAttempts()))));
@@ -200,33 +200,53 @@ public final class AuthCommands {
         return 1;
     }
 
-    private static int handleAdminReset(CommandSourceStack source, ServerPlayer target) {
-        AuthManager.adminReset(target.getUUID());
-        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-reset", "player", target.getScoreboardName())), true);
+    private static int handleAdminReset(CommandSourceStack source, String playerName) {
+        ServerPlayer online = source.getServer().getPlayerList().getPlayerByName(playerName);
+        UUID uuid = online != null ? online.getUUID()
+                : DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+        AuthManager.adminReset(uuid);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-reset", "player", playerName)), true);
         return 1;
     }
 
-    private static int handleAdminUnlink(CommandSourceStack source, ServerPlayer target) {
-        AuthManager.adminUnlink(target.getUUID());
-        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-unlink", "player", target.getScoreboardName())), true);
+    private static int handleAdminUnlink(CommandSourceStack source, String playerName) {
+        ServerPlayer online = source.getServer().getPlayerList().getPlayerByName(playerName);
+        UUID uuid = online != null ? online.getUUID()
+                : DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+        AuthManager.adminUnlink(uuid);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-unlink", "player", playerName)), true);
         return 1;
     }
 
-    private static int handleAdminInfo(CommandSourceStack source, ServerPlayer target) {
-        AccountDatabase.AccountRecord account = AuthManager.adminInfo(target.getUUID());
+    private static int handleAdminInfo(CommandSourceStack source, String playerName) {
+        ServerPlayer online = source.getServer().getPlayerList().getPlayerByName(playerName);
+        UUID uuid = online != null ? online.getUUID()
+                : DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+        AccountDatabase.AccountRecord account = AuthManager.adminInfo(uuid);
         if (account == null) {
             source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-no-account")), false);
             return 0;
         }
 
-        String name = target.getScoreboardName();
         String discord = account.discordId() != null ? account.discordId() : "None";
         String registered = DATE_FORMAT.format(Instant.ofEpochMilli(account.registeredAt()));
         String lastLogin = DATE_FORMAT.format(Instant.ofEpochMilli(account.lastLogin()));
         String lastIp = account.lastIp() != null ? account.lastIp() : "Unknown";
 
-        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-header", "player", name)), false);
-        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-uuid", "uuid", target.getUUID().toString())), false);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-header", "player", playerName)), false);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-uuid", "uuid", uuid.toString())), false);
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-discord", "discord", discord)), false);
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-registered", "date", registered)), false);
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("auth.admin-info-last-login", "date", lastLogin)), false);

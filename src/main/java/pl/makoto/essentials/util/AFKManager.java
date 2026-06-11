@@ -24,10 +24,15 @@ public class AFKManager {
         lastActivity.put(uuid, System.currentTimeMillis());
         if (afkPlayers.remove(uuid)) {
             // Player returned from AFK
-            ServerPlayer player = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayer(uuid);
+            var server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) return;
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
-                player.getServer().getPlayerList().broadcastSystemMessage(
-                    MessageUtils.prefixed(I18n.get("afk.no-longer-afk", "player", player.getScoreboardName())), false);
+                // Announcing AFK for vanished/phantom players would reveal their presence
+                if (!AdminManager.isVanished(uuid) && !ShadowBanManager.isPhantom(uuid)) {
+                    player.getServer().getPlayerList().broadcastSystemMessage(
+                        MessageUtils.prefixed(I18n.get("afk.no-longer-afk", "player", player.getScoreboardName())), false);
+                }
                 PlayerListener.refreshNickname(player);
             }
         }
@@ -35,6 +40,25 @@ public class AFKManager {
 
     public static boolean isAFK(UUID uuid) {
         return afkPlayers.contains(uuid);
+    }
+
+    /** Manual /afk toggle. @return true if the player is now AFK */
+    public static boolean toggleAfk(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        if (afkPlayers.contains(uuid)) {
+            recordActivity(uuid); // announces "no longer AFK" and refreshes the nickname
+            return false;
+        }
+        afkPlayers.add(uuid);
+        // Sync the stored position so the movement detector un-AFKs them on their next move
+        lastPositions.put(uuid, new double[]{player.getX(), player.getY(), player.getZ()});
+        lastActivity.put(uuid, System.currentTimeMillis());
+        if (!AdminManager.isVanished(uuid) && !ShadowBanManager.isPhantom(uuid)) {
+            player.getServer().getPlayerList().broadcastSystemMessage(
+                MessageUtils.prefixed(I18n.get("afk.now-afk", "player", player.getScoreboardName())), false);
+        }
+        PlayerListener.refreshNickname(player);
+        return true;
     }
 
     public static void removePlayer(UUID uuid) {
@@ -63,8 +87,11 @@ public class AFKManager {
                 afkPlayers.add(uuid);
                 ServerPlayer player = event.getServer().getPlayerList().getPlayer(uuid);
                 if (player != null) {
-                    player.getServer().getPlayerList().broadcastSystemMessage(
-                        MessageUtils.prefixed(I18n.get("afk.now-afk", "player", player.getScoreboardName())), false);
+                    // Announcing AFK for vanished/phantom players would reveal their presence
+                    if (!AdminManager.isVanished(uuid) && !ShadowBanManager.isPhantom(uuid)) {
+                        player.getServer().getPlayerList().broadcastSystemMessage(
+                            MessageUtils.prefixed(I18n.get("afk.now-afk", "player", player.getScoreboardName())), false);
+                    }
                     PlayerListener.refreshNickname(player);
                 }
             }

@@ -32,9 +32,12 @@ public class TeleportManager {
         
         // Check Cooldown
         long now = System.currentTimeMillis();
-        if (!ignoreDelay && !bypass && cooldowns.containsKey(uuid)) {
-            long remaining = (cooldowns.get(uuid) - now) / 1000;
-            if (remaining > 0) {
+        Long cooldownEnd = cooldowns.get(uuid);
+        if (cooldownEnd != null) {
+            long remaining = (cooldownEnd - now) / 1000;
+            if (remaining <= 0) {
+                cooldowns.remove(uuid);
+            } else if (!ignoreDelay && !bypass) {
                 player.sendSystemMessage(MessageUtils.prefixed("&cYou must wait " + remaining + " seconds before teleporting again."));
                 return;
             }
@@ -58,7 +61,9 @@ public class TeleportManager {
         ResourceKey<Level> dimKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(loc.dimension));
         ServerLevel level = player.getServer().getLevel(dimKey);
         if (level != null) {
-            ChunkPos pos = new ChunkPos((int)loc.x >> 4, (int)loc.z >> 4);
+            // floor, not (int) cast — casting truncates toward zero and picks the wrong chunk
+            // for negative coordinates
+            ChunkPos pos = new ChunkPos(net.minecraft.util.Mth.floor(loc.x) >> 4, net.minecraft.util.Mth.floor(loc.z) >> 4);
             // Add a ticket to start loading chunks in the area
             level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.POST_TELEPORT, pos, 2, player.getId());
         }
@@ -73,6 +78,11 @@ public class TeleportManager {
         if (cooldown > 0) {
             cooldowns.put(player.getUUID(), System.currentTimeMillis() + (cooldown * 1000L));
         }
+    }
+
+    public static void cleanupPlayer(UUID uuid) {
+        pendingTeleports.remove(uuid);
+        cooldowns.remove(uuid);
     }
 
     @SubscribeEvent

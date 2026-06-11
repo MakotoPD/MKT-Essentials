@@ -33,6 +33,52 @@ public class MuteCommands {
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.unmute", 2))
                 .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> unmute(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+
+        // /tempmute <player> <duration> [reason] — duration is required
+        dispatcher.register(Commands.literal("tempmute")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.mute", 2))
+                .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Commands.argument("duration", StringArgumentType.word())
+                                .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                        .executes(context -> tempMute(context.getSource(),
+                                                StringArgumentType.getString(context, "player"),
+                                                StringArgumentType.getString(context, "duration"),
+                                                StringArgumentType.getString(context, "reason"))))
+                                .executes(context -> tempMute(context.getSource(),
+                                        StringArgumentType.getString(context, "player"),
+                                        StringArgumentType.getString(context, "duration"),
+                                        "Muted by an operator")))));
+    }
+
+    private static int tempMute(CommandSourceStack source, String playerName, String durationStr, String reason) {
+        long duration;
+        try {
+            duration = DurationParser.parse(durationStr);
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(MessageUtils.prefixed("&cInvalid duration format! Use e.g. 1d6h30m (d=days, h=hours, m=minutes, s=seconds)."));
+            return 0;
+        }
+
+        ServerPlayer online = source.getServer().getPlayerList().getPlayerByName(playerName);
+        UUID uuid = online != null ? online.getUUID()
+                : DataManager.resolveOfflineUUID(playerName, source.getServer());
+        if (uuid == null) {
+            source.sendFailure(MessageUtils.prefixed(I18n.get("general.player-not-found", "player", playerName)));
+            return 0;
+        }
+
+        PlayerData data = DataManager.getPlayerData(uuid);
+        data.setMuteExpiration(System.currentTimeMillis() + duration);
+        DataManager.savePlayerData(uuid);
+        pl.makoto.essentials.util.PunishmentManager.record(uuid, "tempmute", reason, source.getTextName(), duration);
+
+        String formatted = DurationParser.format(duration);
+        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.muted", "player", playerName, "duration", "for " + formatted)), true);
+        if (online != null) {
+            online.sendSystemMessage(MessageUtils.prefixed(I18n.get("moderation.muted-notify", "duration", "for " + formatted)
+                    + " &7Reason: &f" + reason));
+        }
+        return 1;
     }
 
     private static int mute(CommandSourceStack source, ServerPlayer target, String until) {
@@ -53,6 +99,8 @@ public class MuteCommands {
         PlayerData data = DataManager.getPlayerData(target.getUUID());
         data.setMuteExpiration(expiration);
         DataManager.savePlayerData(target.getUUID());
+        pl.makoto.essentials.util.PunishmentManager.record(target.getUUID(), "mute", "Muted by an operator",
+                source.getTextName(), expiration > 0 ? expiration - System.currentTimeMillis() : 0);
 
         String timeStr = until.equalsIgnoreCase("forever") ? "forever" : "until " + until;
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.muted", "player", target.getScoreboardName(), "duration", timeStr)), true);

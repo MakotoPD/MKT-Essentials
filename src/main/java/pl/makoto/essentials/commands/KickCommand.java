@@ -31,6 +31,7 @@ public class KickCommand {
     private static int kick(CommandSourceStack source, ServerPlayer target, String reason) {
         if (target == null) return 0;
 
+        pl.makoto.essentials.util.PunishmentManager.record(target.getUUID(), "kick", reason, source.getTextName(), 0);
         target.connection.disconnect(Component.literal("\u00a7c" + reason));
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.kicked", "player", target.getScoreboardName(), "reason", reason)), true);
         return 1;

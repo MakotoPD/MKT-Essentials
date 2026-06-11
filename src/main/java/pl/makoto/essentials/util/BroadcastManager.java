@@ -17,8 +17,16 @@ public class BroadcastManager {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
+        if (!Settings.isBroadcastEnabled()) return;
         int intervalSeconds = Settings.getBroadcastInterval();
         if (intervalSeconds <= 0) return;
+
+        // No audience — hold the timer so a joining player isn't greeted with an
+        // instant backlog broadcast
+        if (event.getServer().getPlayerList().getPlayerCount() == 0) {
+            lastBroadcastTicks = 0;
+            return;
+        }
 
         long intervalTicks = intervalSeconds * 20L;
         lastBroadcastTicks++;

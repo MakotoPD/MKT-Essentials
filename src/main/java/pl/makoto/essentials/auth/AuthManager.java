@@ -21,7 +21,12 @@ public final class AuthManager {
     public enum LinkResult { SUCCESS, CODE_INVALID, CODE_EXPIRED, DISCORD_ALREADY_LINKED }
 
     private static final Set<UUID> authenticatedPlayers = ConcurrentHashMap.newKeySet();
-    private static final Map<UUID, Integer> loginAttempts = new ConcurrentHashMap<>();
+    // Failed logins are tracked per IP within a rolling window — kicking or relogging
+    // must not reset the counter, otherwise the max-attempts limit is trivially bypassed.
+    private static final Map<String, FailedLogins> loginAttempts = new ConcurrentHashMap<>();
+    private static final long LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000L;
+
+    private record FailedLogins(int count, long windowStart) {}
 
     private static MinecraftServer server;
 
@@ -129,7 +134,6 @@ public final class AuthManager {
 
     public static void handleQuit(UUID uuid) {
         authenticatedPlayers.remove(uuid);
-        loginAttempts.remove(uuid);
         FreezeManager.cleanup(uuid);
         NewbieProtection.cleanup(uuid);
     }
@@ -190,33 +194,55 @@ public final class AuthManager {
             return LoginResult.NOT_REGISTERED;
         }
 
+        String ip = getPlayerIp(player);
+
         // Check max attempts
-        int attempts = loginAttempts.getOrDefault(uuid, 0);
-        if (attempts >= Settings.getMaxLoginAttempts()) {
+        if (failedAttempts(ip) >= Settings.getMaxLoginAttempts()) {
+            kickForMaxAttempts(player);
             return LoginResult.MAX_ATTEMPTS_EXCEEDED;
         }
 
         // Verify password
         if (!BCrypt.checkpw(password, account.passwordHash())) {
-            attempts++;
-            loginAttempts.put(uuid, attempts);
+            int attempts = recordFailedAttempt(ip);
             if (attempts >= Settings.getMaxLoginAttempts()) {
-                // Kick the player
-                player.connection.disconnect(MessageUtils.format(
-                        I18n.get("auth.kicked-timeout", "seconds", String.valueOf(Settings.getLoginTimeoutSeconds()))));
+                kickForMaxAttempts(player);
                 return LoginResult.MAX_ATTEMPTS_EXCEEDED;
             }
             return LoginResult.WRONG_PASSWORD;
         }
 
         // Success
-        String ip = getPlayerIp(player);
         AccountDatabase.updateLastLogin(uuid, ip);
         createSession(uuid, ip);
-        loginAttempts.remove(uuid);
+        loginAttempts.remove(ip);
         markAuthenticated(player);
 
         return LoginResult.SUCCESS;
+    }
+
+    private static void kickForMaxAttempts(ServerPlayer player) {
+        player.connection.disconnect(MessageUtils.format(
+                I18n.get("auth.kicked-max-attempts", "max", String.valueOf(Settings.getMaxLoginAttempts()))));
+    }
+
+    private static int failedAttempts(String ip) {
+        FailedLogins entry = loginAttempts.get(ip);
+        if (entry == null) return 0;
+        if (System.currentTimeMillis() - entry.windowStart() > LOGIN_ATTEMPT_WINDOW_MS) {
+            loginAttempts.remove(ip);
+            return 0;
+        }
+        return entry.count();
+    }
+
+    private static int recordFailedAttempt(String ip) {
+        long now = System.currentTimeMillis();
+        return loginAttempts.compute(ip, (k, entry) ->
+                entry == null || now - entry.windowStart() > LOGIN_ATTEMPT_WINDOW_MS
+                        ? new FailedLogins(1, now)
+                        : new FailedLogins(entry.count() + 1, entry.windowStart())
+        ).count();
     }
 
     // ─── Change Password ───────────────────────────────────────────────────────
@@ -239,6 +265,11 @@ public final class AuthManager {
 
         String hash = BCrypt.hashpw(newPw, BCrypt.gensalt());
         AccountDatabase.updatePasswordHash(uuid, hash);
+
+        // Invalidate any session created before the password change (e.g. from another
+        // network) and re-issue one for the current connection only.
+        AccountDatabase.deleteSession(uuid);
+        createSession(uuid, getPlayerIp(player));
 
         return ChangePasswordResult.SUCCESS;
     }
@@ -332,6 +363,8 @@ public final class AuthManager {
             DiscordBot.removeLinkedRole(account.discordId());
         }
         AccountDatabase.updateDiscordId(uuid, null);
+        // The old session would auto-authenticate the player on rejoin, bypassing the link requirement
+        AccountDatabase.deleteSession(uuid);
 
         AuthMode mode = Settings.getAuthMode();
         if (mode.requiresLink()) {
@@ -351,7 +384,7 @@ public final class AuthManager {
     public static void markAuthenticated(ServerPlayer player) {
         UUID uuid = player.getUUID();
         authenticatedPlayers.add(uuid);
-        loginAttempts.remove(uuid);
+        loginAttempts.remove(getPlayerIp(player));
         FreezeManager.unfreeze(player);
         NewbieProtection.resumeTimer(uuid);
     }
@@ -376,6 +409,8 @@ public final class AuthManager {
             DiscordBot.removeLinkedRole(account.discordId());
         }
         AccountDatabase.updateDiscordId(targetUuid, null);
+        // The old session would auto-authenticate the player on rejoin, bypassing the link requirement
+        AccountDatabase.deleteSession(targetUuid);
 
         ServerPlayer player = findPlayer(targetUuid);
         if (player != null && Settings.getAuthMode().requiresLink()) {
@@ -416,7 +451,7 @@ public final class AuthManager {
         return server.getPlayerList().getPlayer(uuid);
     }
 
-    public static int getLoginAttempts(UUID uuid) {
-        return loginAttempts.getOrDefault(uuid, 0);
+    public static int getLoginAttempts(ServerPlayer player) {
+        return failedAttempts(getPlayerIp(player));
     }
 }

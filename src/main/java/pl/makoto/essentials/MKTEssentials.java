@@ -71,14 +71,24 @@ public class MKTEssentials {
         MiscCommands.register(dispatcher); // help etc
         TimeWeatherCommands.register(dispatcher);
         if (Settings.isCommandEnabled("ban")) BanCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("banip")) IpBanCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("warn")) WarnCommands.register(dispatcher);
         if (Settings.isCommandEnabled("kick")) KickCommand.register(dispatcher);
         if (Settings.isCommandEnabled("repair")) RepairCommand.register(dispatcher);
         if (Settings.isCommandEnabled("enchant")) EnchantCommand.register(dispatcher);
+        if (Settings.isCommandEnabled("exp")) ExpCommand.register(dispatcher);
         if (Settings.isCommandEnabled("backup")) BackupCommands.register(dispatcher);
         if (Settings.getAuthMode() != AuthMode.DISABLED) AuthCommands.register(dispatcher);
         if (Settings.isCommandEnabled("shadowban")) ShadowBanCommands.register(dispatcher);
         if (Settings.isCommandEnabled("shortcuts")) ShortcutCommands.register(dispatcher);
         if (Settings.isCommandEnabled("clearitems")) ClearItemsCommand.register(dispatcher);
+        if (Settings.isCommandEnabled("whois") || Settings.isCommandEnabled("playtime")) InfoCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("stations")) StationCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("ptime")) PlayerTimeWeatherCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("helpop")) ReportCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("tps")) PerformanceCommands.register(dispatcher);
+        // Text commands go last so real commands always win alias conflicts
+        TextCommands.register(dispatcher);
     }
 
     @SubscribeEvent
@@ -88,6 +98,8 @@ public class MKTEssentials {
         ConfigManager.init();
         DataManager.init(server);
         BanManager.init(server);
+        pl.makoto.essentials.util.IpBanManager.init(server);
+        pl.makoto.essentials.util.PunishmentManager.init(server);
         ShadowBanManager.init(server);
         BackupManager.init(server);
         AuthManager.init(server);
@@ -118,7 +130,7 @@ public class MKTEssentials {
 
     private void logIntegrations() {
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        LOGGER.info("  MKT Essentials v0.2.2 — Integrations");
+        LOGGER.info("  MKT Essentials v0.3.0 — Integrations");
         LOGGER.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         LOGGER.info("  ✓ Config — YAML (config/mktessentials/)");
         LOGGER.info("  ✓ Language — {} loaded", Settings.getLanguage());
@@ -154,6 +166,9 @@ public class MKTEssentials {
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
+        // Logout events save each online player, but an explicit save guards against
+        // paths where they don't fire (e.g. watchdog-initiated stop)
+        DataManager.saveAll();
         AuthManager.shutdown();
     }
 }

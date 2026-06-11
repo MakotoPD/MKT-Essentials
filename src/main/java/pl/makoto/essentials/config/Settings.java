@@ -61,13 +61,20 @@ public final class Settings {
     private static boolean joinQuitEnabled = true;
     private static String joinMessage = "&8[&a+&8] &7%mktessentials:full_name/safe% joined the game.";
     private static String quitMessage = "&8[&c-&8] &7%mktessentials:full_name/safe% left the game.";
+    private static boolean broadcastEnabled = true;
     private static int broadcastInterval = 300;
     private static List<String> broadcastMessages = List.of("&7Welcome to our server!", "&7Join our Discord: &b/discord", "&7Use &6/rtp &7to start your adventure!");
     private static String broadcastPrefix = "&8[&bINFO&8] &r";
     private static String broadcastOrder = "random";
 
+    // Text commands (messages.yml → text-commands)
+    public record TextCommand(String name, List<String> aliases, List<String> messages) {}
+    private static List<TextCommand> textCommands = List.of();
+
     // Moderation
     private static String shadowbanMethod = "timeout";
+    private static int maxWarns = 3;
+    private static String warnBanDuration = "1d";
 
     // Items
     private static int itemDespawnTime = 300; // seconds, 0 = disabled
@@ -122,12 +129,17 @@ public final class Settings {
     public static boolean isJoinQuitEnabled() { return joinQuitEnabled; }
     public static String getJoinMessage() { return joinMessage; }
     public static String getQuitMessage() { return quitMessage; }
+    public static boolean isBroadcastEnabled() { return broadcastEnabled; }
     public static int getBroadcastInterval() { return broadcastInterval; }
     public static List<String> getBroadcastMessages() { return broadcastMessages; }
     public static String getBroadcastPrefix() { return broadcastPrefix; }
     public static String getBroadcastOrder() { return broadcastOrder; }
+    public static List<TextCommand> getTextCommands() { return textCommands; }
 
     public static String getShadowbanMethod() { return shadowbanMethod; }
+    /** Active warns that trigger an automatic tempban (0 = escalation disabled). */
+    public static int getMaxWarns() { return maxWarns; }
+    public static String getWarnBanDuration() { return warnBanDuration; }
 
     // Items getters
     public static int getItemDespawnTime() { return itemDespawnTime; }
@@ -184,6 +196,8 @@ public final class Settings {
         backupInterval = ConfigManager.getNestedValue(map, "backup.interval", 0);
         maxBackupsPerPlayer = ConfigManager.getNestedValue(map, "backup.max-per-player", 10);
         shadowbanMethod = ConfigManager.getNestedValue(map, "moderation.shadowban-method", "timeout");
+        maxWarns = ConfigManager.getNestedValue(map, "moderation.max-warns", 3);
+        warnBanDuration = ConfigManager.getNestedValue(map, "moderation.warn-ban-duration", "1d");
 
         // Items
         itemDespawnTime = ConfigManager.getNestedValue(map, "items.despawn-time", 300);
@@ -231,6 +245,7 @@ public final class Settings {
         joinQuitEnabled = ConfigManager.getNestedValue(map, "join-quit.enabled", true);
         joinMessage = ConfigManager.getNestedValue(map, "join-quit.join-message", joinMessage);
         quitMessage = ConfigManager.getNestedValue(map, "join-quit.quit-message", quitMessage);
+        broadcastEnabled = ConfigManager.getNestedValue(map, "broadcast.enabled", true);
         broadcastInterval = ConfigManager.getNestedValue(map, "broadcast.interval", 300);
         broadcastPrefix = ConfigManager.getNestedValue(map, "broadcast.prefix", broadcastPrefix);
         broadcastOrder = ConfigManager.getNestedValue(map, "broadcast.order", "random");
@@ -238,6 +253,31 @@ public final class Settings {
         if (msgs instanceof List<?> list) {
             broadcastMessages = list.stream().map(Object::toString).toList();
         }
+
+        // Text commands: text-commands.<name> → { aliases: [...], messages: [...] }
+        List<TextCommand> parsed = new ArrayList<>();
+        Object tcObj = ConfigManager.getNestedValue(map, "text-commands", (Object) null);
+        if (tcObj instanceof Map<?, ?> tcMap) {
+            for (Map.Entry<?, ?> entry : tcMap.entrySet()) {
+                String name = entry.getKey().toString();
+                if (!(entry.getValue() instanceof Map<?, ?> def)) continue;
+
+                List<String> aliases = new ArrayList<>();
+                if (def.get("aliases") instanceof List<?> aliasList) {
+                    aliasList.forEach(a -> aliases.add(a.toString()));
+                }
+                if (aliases.isEmpty()) aliases.add(name);
+
+                List<String> lines = new ArrayList<>();
+                if (def.get("messages") instanceof List<?> msgList) {
+                    msgList.forEach(m -> lines.add(m.toString()));
+                }
+                if (lines.isEmpty()) continue;
+
+                parsed.add(new TextCommand(name, List.copyOf(aliases), List.copyOf(lines)));
+            }
+        }
+        textCommands = List.copyOf(parsed);
     }
 
     static void loadAuth(Map<String, Object> map) {

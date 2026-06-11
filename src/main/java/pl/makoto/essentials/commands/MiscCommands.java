@@ -43,6 +43,21 @@ public class MiscCommands {
         dispatcher.register(Commands.literal("streaming")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.streaming", 0))
                 .executes(context -> streaming(context.getSource())));
+
+        dispatcher.register(Commands.literal("afk")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.afk", 0))
+                .executes(context -> afk(context.getSource())));
+    }
+
+    private static int afk(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return 0;
+
+        boolean nowAfk = pl.makoto.essentials.util.AFKManager.toggleAfk(player);
+        source.sendSuccess(() -> MessageUtils.prefixed(nowAfk
+                ? "&7You are now &eAFK&7."
+                : "&7You are no longer AFK."), false);
+        return 1;
     }
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> nickCommand(String name) {

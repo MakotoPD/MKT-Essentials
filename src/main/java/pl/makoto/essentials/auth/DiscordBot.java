@@ -162,14 +162,25 @@ public final class DiscordBot extends ListenerAdapter {
         String code = codeOption.getAsString().trim();
         String discordId = event.getUser().getId();
 
-        AuthManager.LinkResult result = AuthManager.completeLinking(code, discordId);
-
-        switch (result) {
-            case SUCCESS -> event.reply("\u2705 Your Minecraft account has been linked successfully!").setEphemeral(true).queue();
-            case CODE_INVALID -> event.reply("\u274c Invalid or expired link code. Please generate a new one in-game with `/link`.").setEphemeral(true).queue();
-            case CODE_EXPIRED -> event.reply("\u274c This code has expired. Please generate a new one in-game with `/link`.").setEphemeral(true).queue();
-            case DISCORD_ALREADY_LINKED -> event.reply("\u274c Your Discord account is already linked to another Minecraft account.").setEphemeral(true).queue();
+        var server = MKTEssentials.getServer();
+        if (server == null) {
+            event.reply("\u274c The Minecraft server is not running.").setEphemeral(true).queue();
+            return;
         }
+
+        // completeLinking touches the database and player state, so it must run on the
+        // server thread \u2014 this callback fires on a JDA thread.
+        event.deferReply(true).queue();
+        server.execute(() -> {
+            AuthManager.LinkResult result = AuthManager.completeLinking(code, discordId);
+            String reply = switch (result) {
+                case SUCCESS -> "\u2705 Your Minecraft account has been linked successfully!";
+                case CODE_INVALID -> "\u274c Invalid or expired link code. Please generate a new one in-game with `/link`.";
+                case CODE_EXPIRED -> "\u274c This code has expired. Please generate a new one in-game with `/link`.";
+                case DISCORD_ALREADY_LINKED -> "\u274c Your Discord account is already linked to another Minecraft account.";
+            };
+            event.getHook().sendMessage(reply).queue();
+        });
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────

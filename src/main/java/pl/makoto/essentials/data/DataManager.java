@@ -41,6 +41,7 @@ public class DataManager {
             Files.createDirectories(playersDir);
             loadWarps();
             loadKits();
+            loadSpawn();
         } catch (IOException e) {
             MKTEssentials.LOGGER.error("Failed to initialize MKT Essentials data directories", e);
         }
@@ -51,11 +52,17 @@ public class DataManager {
         
         Path playerFile = playersDir.resolve(uuid.toString() + ".json");
         if (Files.exists(playerFile)) {
+            // Catch Exception, not just IOException — a corrupted file throws JsonSyntaxException,
+            // and an empty file yields null; both must fall through to fresh data instead of
+            // poisoning the cache or crashing the join handler.
             try (Reader reader = Files.newBufferedReader(playerFile)) {
                 PlayerData data = GSON.fromJson(reader, PlayerData.class);
-                playerCache.put(uuid, data);
-                return data;
-            } catch (IOException e) {
+                if (data != null) {
+                    playerCache.put(uuid, data);
+                    return data;
+                }
+                MKTEssentials.LOGGER.warn("Player data file for {} is empty — creating fresh data.", uuid);
+            } catch (Exception e) {
                 MKTEssentials.LOGGER.error("Failed to load player data for " + uuid, e);
             }
         }
@@ -75,6 +82,12 @@ public class DataManager {
         } catch (IOException e) {
             MKTEssentials.LOGGER.error("Failed to save player data for " + uuid, e);
         }
+
+        // Data modified for offline players (e.g. /mute on someone offline) would otherwise
+        // sit in the cache forever — there is no quit event to evict it.
+        if (server != null && server.getPlayerList().getPlayer(uuid) == null) {
+            playerCache.remove(uuid);
+        }
     }
 
     public static void evictPlayer(UUID uuid) {
@@ -83,7 +96,8 @@ public class DataManager {
     }
 
     public static void saveAll() {
-        for (UUID uuid : playerCache.keySet()) {
+        // Copy — savePlayerData may evict offline players' entries while we iterate
+        for (UUID uuid : new java.util.ArrayList<>(playerCache.keySet())) {
             savePlayerData(uuid);
         }
     }
@@ -167,6 +181,33 @@ public class DataManager {
 
     public static java.util.Collection<KitData> getAllKits() {
         return kitCache.values();
+    }
+
+    // --- SPAWN ---
+    private static PlayerData.SavedLocation spawnLocation;
+
+    public static PlayerData.SavedLocation getSpawn() {
+        return spawnLocation;
+    }
+
+    public static void setSpawn(PlayerData.SavedLocation loc) {
+        spawnLocation = loc;
+        Path file = dataDir.resolve("spawn.json");
+        try (Writer writer = Files.newBufferedWriter(file)) {
+            GSON.toJson(loc, writer);
+        } catch (IOException e) {
+            MKTEssentials.LOGGER.error("Failed to save spawn.json", e);
+        }
+    }
+
+    private static void loadSpawn() {
+        Path file = dataDir.resolve("spawn.json");
+        if (!Files.exists(file)) return;
+        try (Reader reader = Files.newBufferedReader(file)) {
+            spawnLocation = GSON.fromJson(reader, PlayerData.SavedLocation.class);
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.error("Failed to load spawn.json", e);
+        }
     }
 
     // --- OFFLINE UUID RESOLUTION ---
