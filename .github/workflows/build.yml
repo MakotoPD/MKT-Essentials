@@ -3,9 +3,9 @@ name: Build & Release
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -39,35 +39,66 @@ jobs:
           path: build/libs/mktessentials-*.jar
           if-no-files-found: error
 
+  # Automatically publishes a GitHub Release when mod_version in gradle.properties
+  # is bumped — no tag pushing needed. The tag v<mod_version> is created by the
+  # release action itself; if the tag already exists, the release is skipped.
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup JDK 21
-        uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Read mod version and check for existing release
+        id: version
+        run: |
+          VERSION=$(grep -oP '^mod_version=\K.*' gradle.properties | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "::error::mod_version not found in gradle.properties"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "Release v$VERSION already exists — skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
+      - name: Download build artifact
+        if: steps.version.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: mktessentials
+          path: release-files
 
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Extract changelog for this version
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.md || true
+          if [ ! -s release_notes.md ]; then
+            echo "_No changelog entry found for this version._" > release_notes.md
+          fi
 
       - name: Create GitHub Release
+        if: steps.version.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          files: build/libs/mktessentials-*.jar
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          body_path: release_notes.md
           generate_release_notes: true
+          files: release-files/mktessentials-*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
