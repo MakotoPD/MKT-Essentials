@@ -2,7 +2,7 @@
 
 A comprehensive, all-in-one server-side utility mod for NeoForge 1.21.1. Everything you need to run a Minecraft server — homes, warps, moderation, authentication, inventory backups, and much more — in a single lightweight package.
 
----
+--- 
 
 ## ✨ Why MKT Essentials?
 
