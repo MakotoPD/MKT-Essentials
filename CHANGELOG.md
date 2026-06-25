@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0]
+
+### New Features
+
+- **Per-rank home limits via dynamic LuckPerms permissions** — set the maximum number of homes per rank with `mktessentials.homes.<number>` (the highest granted number wins, e.g. `mktessentials.homes.10`). `mktessentials.homes.*` or `mktessentials.homes.unlimited` grant unlimited homes. Resolution order: dynamic permission → `mktessentials.max_homes` meta → config `general.max-homes`.
+
+- **Separate teleport cooldowns for TPA, RTP and Warps** — each teleport type now runs on its own independent cooldown clock, so using `/tpa` no longer blocks `/rtp` or `/warp`. New config keys under `teleportation`: `cooldown-tpa`, `cooldown-rtp`, `cooldown-warp` (`-1` = inherit the global `cooldown`). Per-rank overrides via LuckPerms meta `mktessentials.teleport_cooldown.<type>` (`tpa`/`rtp`/`warp`), with the legacy `mktessentials.teleport_cooldown` still applying to all types.
+
+### Notes
+
+- Fully backward compatible — existing configs and the global `teleportation.cooldown` behave as before.
+
 ## [0.3.0]
 
 ### New Features
