@@ -5,6 +5,8 @@ import pl.makoto.essentials.MKTEssentials;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public final class AccountDatabase {
@@ -21,6 +23,8 @@ public final class AccountDatabase {
     public record SessionRecord(String mcUuid, String sessionIp, long expiresAt) {}
 
     public record LinkCodeRecord(String code, String mcUuid, long createdAt, long expiresAt) {}
+
+    public record LinkedAccount(String mcUuid, String mcName, String discordId) {}
 
     // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -149,6 +153,18 @@ public final class AccountDatabase {
         }
     }
 
+    public static void updateMcName(UUID uuid, String mcName) {
+        if (unavailable()) return;
+        try (PreparedStatement ps = connection.prepareStatement(
+                "UPDATE accounts SET mc_name = ? WHERE mc_uuid = ?")) {
+            ps.setString(1, mcName);
+            ps.setString(2, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            MKTEssentials.LOGGER.error("Failed to update mc_name for {}", uuid, e);
+        }
+    }
+
     public static void updateLastLogin(UUID uuid, String ip) {
         if (unavailable()) return;
         try (PreparedStatement ps = connection.prepareStatement(
@@ -183,6 +199,22 @@ public final class AccountDatabase {
             MKTEssentials.LOGGER.error("Failed to get account by discord_id {}", discordId, e);
         }
         return null;
+    }
+
+    /** Wszystkie konta z połączonym Discordem — do backfillu web-sync. */
+    public static List<LinkedAccount> getLinkedAccounts() {
+        if (unavailable()) return List.of();
+        List<LinkedAccount> out = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT mc_uuid, mc_name, discord_id FROM accounts WHERE discord_id IS NOT NULL AND discord_id <> ''")) {
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                out.add(new LinkedAccount(rs.getString("mc_uuid"), rs.getString("mc_name"), rs.getString("discord_id")));
+            }
+        } catch (SQLException e) {
+            MKTEssentials.LOGGER.error("Failed to list linked accounts", e);
+        }
+        return out;
     }
 
     public static void deleteAccount(UUID uuid) {

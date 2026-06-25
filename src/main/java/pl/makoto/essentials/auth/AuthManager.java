@@ -11,6 +11,7 @@ import pl.makoto.essentials.util.MessageUtils;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 public final class AuthManager {
 
@@ -48,10 +49,19 @@ public final class AuthManager {
         if (Settings.isDiscordEnabled()) {
             DiscordBot.initAsync();
         }
+
+        // opcjonalny backfill linków do zewnętrznego backendu (panel www)
+        if (Settings.isWebSyncEnabled() && Settings.isWebSyncBackfillOnStart()) {
+            WebSync.backfill();
+        }
+
+        // opcjonalny kanał przychodzący (panel www → mod), np. rozłączanie kont
+        WebApiServer.start();
     }
 
     public static void shutdown() {
         if (Settings.getAuthMode() == AuthMode.DISABLED) return;
+        WebApiServer.stop();
         DiscordBot.shutdown();
         AccountDatabase.shutdown();
         authenticatedPlayers.clear();
@@ -87,6 +97,10 @@ public final class AuthManager {
 
         UUID uuid = player.getUUID();
         String ip = getPlayerIp(player);
+
+        // Keep the linked account's stored MC name fresh and mirrored to the backend —
+        // link-only accounts start with a null name, and names can change over time.
+        refreshLinkedName(player);
 
         // Check for valid session
         AccountDatabase.SessionRecord session = AccountDatabase.getSession(uuid);
@@ -130,6 +144,23 @@ public final class AuthManager {
                 player.sendSystemMessage(MessageUtils.prefixed(I18n.get("auth.welcome-login")));
             }
         }
+    }
+
+    /**
+     * Jeśli gracz ma połączone konto, dba o aktualny nick MC w bazie i wypycha go
+     * do backendu (panel www). Naprawia konta link-only, które startują z nullem,
+     * oraz zmiany nicku — bez tego panel pokazywałby UUID bez nazwy.
+     */
+    private static void refreshLinkedName(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        AccountDatabase.AccountRecord acc = AccountDatabase.getAccount(uuid);
+        if (acc == null || acc.discordId() == null || acc.discordId().isEmpty()) return;
+
+        String current = player.getGameProfile().getName();
+        if (current == null || current.equals(acc.mcName())) return;
+
+        AccountDatabase.updateMcName(uuid, current);
+        WebSync.linked(uuid.toString(), current, acc.discordId(), null, null);
     }
 
     public static void handleQuit(UUID uuid) {
@@ -330,6 +361,10 @@ public final class AuthManager {
         // If player is online and frozen, check if they can be authenticated now
         ServerPlayer player = findPlayer(playerUuid);
         if (player != null) {
+            // Persist the MC name so backfill/web-sync always carry it (link-only
+            // accounts are created with a null name).
+            AccountDatabase.updateMcName(playerUuid, player.getGameProfile().getName());
+
             player.sendSystemMessage(MessageUtils.prefixed(I18n.get("auth.link-success")));
 
             AuthMode mode = Settings.getAuthMode();
@@ -361,6 +396,7 @@ public final class AuthManager {
         AccountDatabase.AccountRecord account = AccountDatabase.getAccount(uuid);
         if (account != null && account.discordId() != null) {
             DiscordBot.removeLinkedRole(account.discordId());
+            WebSync.unlinked(uuid.toString(), account.discordId());
         }
         AccountDatabase.updateDiscordId(uuid, null);
         // The old session would auto-authenticate the player on rejoin, bypassing the link requirement
@@ -407,6 +443,7 @@ public final class AuthManager {
         AccountDatabase.AccountRecord account = AccountDatabase.getAccount(targetUuid);
         if (account != null && account.discordId() != null) {
             DiscordBot.removeLinkedRole(account.discordId());
+            WebSync.unlinked(targetUuid.toString(), account.discordId());
         }
         AccountDatabase.updateDiscordId(targetUuid, null);
         // The old session would auto-authenticate the player on rejoin, bypassing the link requirement
@@ -421,6 +458,60 @@ public final class AuthManager {
 
     public static AccountDatabase.AccountRecord adminInfo(UUID targetUuid) {
         return AccountDatabase.getAccount(targetUuid);
+    }
+
+    // ─── Web API (panel www → mod) ───────────────────────────────────────────────
+
+    /**
+     * Rozłącza konto po Discord ID (wywoływane z WebApiServer). Cała operacja —
+     * łącznie z odczytem z bazy — biegnie na wątku serwera, bo {@link #adminUnlink}
+     * dotyka FreezeManager/listy graczy, a SQLite jest współdzielone z wątkiem głównym.
+     * @return true jeśli konto istniało i zostało rozłączone, false gdy nie znaleziono.
+     */
+    public static boolean adminUnlinkByDiscordId(String discordId) {
+        if (discordId == null || discordId.isBlank()) return false;
+        return runOnServer(() -> {
+            AccountDatabase.AccountRecord acc = AccountDatabase.getAccountByDiscordId(discordId);
+            if (acc == null || acc.discordId() == null) return false;
+            adminUnlink(UUID.fromString(acc.mcUuid()));
+            return true;
+        });
+    }
+
+    /** Jak {@link #adminUnlinkByDiscordId} ale po UUID Minecrafta (z myślnikami lub bez). */
+    public static boolean adminUnlinkByUuid(String rawUuid) {
+        UUID uuid = parseUuid(rawUuid);
+        if (uuid == null) return false;
+        return runOnServer(() -> {
+            AccountDatabase.AccountRecord acc = AccountDatabase.getAccount(uuid);
+            if (acc == null) return false;
+            adminUnlink(uuid);
+            return true;
+        });
+    }
+
+    private static boolean runOnServer(java.util.function.Supplier<Boolean> task) {
+        if (server == null) return false;
+        if (server.isSameThread()) return task.get();
+        try {
+            return server.submit(task).get(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.warn("Web unlink failed to run on server thread: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private static UUID parseUuid(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.length() == 32) {
+            s = s.replaceAll("(.{8})(.{4})(.{4})(.{4})(.{12})", "$1-$2-$3-$4-$5");
+        }
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────

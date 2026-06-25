@@ -16,12 +16,13 @@ A comprehensive, all-in-one server-side utility mod for NeoForge 1.21.1. Everyth
 
 ## 🏠 Teleportation
 
-- **Homes** — Set, teleport to, and manage personal home locations
+- **Homes** — Set, teleport to, and manage personal home locations, with **per-rank home limits** via dynamic LuckPerms permissions (`mktessentials.homes.<number>`)
 - **Warps** — Server-wide warp points for admins to create
 - **TPA** — Teleport requests with support for multiple pending requests
 - **RTP** — Async random teleport with biome blacklist and safe-landing checks
 - **Back** — Return to your previous location after death or teleport
 - **Spawn / Top / TpAll** — Quick navigation commands
+- **Per-type cooldowns** — Independent teleport cooldowns for TPA, RTP and Warps, configurable globally or per rank — using `/tpa` no longer blocks `/rtp`
 
 ## 🔐 Authentication & Discord Linking
 
@@ -144,6 +145,25 @@ The original Text Placeholder API does not have an official NeoForge 1.21.1 rele
 Every command has its own permission node (e.g. `mktessentials.command.home`, `mktessentials.admin.fly`, `mktessentials.moderation.ban`). Use any permission manager — LuckPerms recommended.
 
 Full permission list available in-game via `/mkt permissions`.
+
+### Per-rank limits & cooldowns
+
+Some limits scale per rank through LuckPerms:
+
+| Node | Type | Effect |
+|------|------|--------|
+| `mktessentials.homes.<number>` | permission | Max homes for the rank (highest granted number wins; `.*` or `.unlimited` = no limit) |
+| `mktessentials.max_homes` | meta | Alternative way to set the home limit |
+| `mktessentials.teleport_cooldown.tpa` / `.rtp` / `.warp` | meta | Per-type teleport cooldown (seconds) |
+| `mktessentials.teleport_cooldown` | meta | Cooldown for all teleport types (legacy/global) |
+| `mktessentials.teleport_delay` | meta | Warmup delay before a teleport executes |
+| `mktessentials.teleport.bypass` | permission | Skip teleport delay & cooldowns |
+
+```
+# Example: VIP gets 10 homes and a shorter RTP cooldown
+/lp group vip permission set mktessentials.homes.10
+/lp group vip meta set mktessentials.teleport_cooldown.rtp 15
+```
 
 ---
 

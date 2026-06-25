@@ -97,12 +97,12 @@ public class TpaCommands {
             TeleportManager.requestTeleport(target, new PlayerData.SavedLocation(
                     sender.level().dimension().location().toString(),
                     sender.position(), sender.getYRot(), sender.getXRot()
-            ), false);
+            ), false, TeleportManager.Type.TPA);
         } else {
             TeleportManager.requestTeleport(sender, new PlayerData.SavedLocation(
                     target.level().dimension().location().toString(),
                     target.position(), target.getYRot(), target.getXRot()
-            ), false);
+            ), false, TeleportManager.Type.TPA);
         }
 
         TpaManager.removeRequest(target.getUUID(), req);
@@ -123,12 +123,12 @@ public class TpaCommands {
             TeleportManager.requestTeleport(target, new PlayerData.SavedLocation(
                     sender.level().dimension().location().toString(),
                     sender.position(), sender.getYRot(), sender.getXRot()
-            ), false);
+            ), false, TeleportManager.Type.TPA);
         } else {
             TeleportManager.requestTeleport(sender, new PlayerData.SavedLocation(
                     target.level().dimension().location().toString(),
                     target.position(), target.getYRot(), target.getXRot()
-            ), false);
+            ), false, TeleportManager.Type.TPA);
         }
 
         TpaManager.removeRequest(target.getUUID(), req);

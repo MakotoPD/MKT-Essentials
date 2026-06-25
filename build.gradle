@@ -143,6 +143,23 @@ dependencies {
         exclude group: 'org.slf4j'
     }
 
+    // Tranzytywne zależności JDA — jarJar NIE ciągnie ich automatycznie, trzeba je
+    // jawnie spakować, inaczej w runtime leci NoClassDefFoundError (okhttp3/Dispatcher itp.).
+    // Wersje zgodne z tym, co JDA 5.2.1 rozwiązuje (runtimeClasspath).
+    jarJar(group: 'com.squareup.okhttp3', name: 'okhttp', version: '[4.12.0,5.0)') { version { prefer '4.12.0' } }
+    jarJar(group: 'com.squareup.okio', name: 'okio-jvm', version: '[3.6.0,4.0)') { version { prefer '3.6.0' } }
+    // UWAGA: NIE pakujemy kotlin-stdlib — koliduje z dostawcą Kotlina w modpacku
+    // (np. Kotlin for Forge). okio/okhttp użyją Kotlina dostarczonego przez inny mod.
+    jarJar(group: 'com.neovisionaries', name: 'nv-websocket-client', version: '[2.14,3.0)') { version { prefer '2.14' } }
+    jarJar(group: 'net.sf.trove4j', name: 'core', version: '[3.1.0,4.0)') { version { prefer '3.1.0' } }
+    jarJar(group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '[2.17.2,3.0)') { version { prefer '2.17.2' } }
+    jarJar(group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '[2.17.2,3.0)') { version { prefer '2.17.2' } }
+    jarJar(group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '[2.17.2,3.0)') { version { prefer '2.17.2' } }
+    // Apache Commons Collections 4 — używane przez JDA OptionMapping przy parsowaniu
+    // opcji slash commandów. Bez tego: NoClassDefFoundError org/apache/commons/collections4/Bag.
+    implementation 'org.apache.commons:commons-collections4:4.4'
+    jarJar(group: 'org.apache.commons', name: 'commons-collections4', version: '[4.4,5.0)') { version { prefer '4.4' } }
+
     // SQLite JDBC driver
     implementation('org.xerial:sqlite-jdbc:3.45.1.0') {
         exclude group: 'org.slf4j'

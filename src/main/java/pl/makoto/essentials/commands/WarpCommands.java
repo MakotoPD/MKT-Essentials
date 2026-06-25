@@ -77,7 +77,7 @@ public class WarpCommands {
             return 0;
         }
 
-        TeleportManager.requestTeleport(player, loc, false);
+        TeleportManager.requestTeleport(player, loc, false, TeleportManager.Type.WARP);
         return 1;
     }
 

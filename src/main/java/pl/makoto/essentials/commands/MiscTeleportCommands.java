@@ -59,7 +59,7 @@ public class MiscTeleportCommands {
         // Custom spawn (set via /setspawn) takes precedence over the world spawn
         PlayerData.SavedLocation custom = DataManager.getSpawn();
         if (custom != null) {
-            TeleportManager.requestTeleport(player, custom, false);
+            TeleportManager.requestTeleport(player, custom, false, TeleportManager.Type.SPAWN);
             return 1;
         }
 
@@ -70,7 +70,7 @@ public class MiscTeleportCommands {
                 level.dimension().location().toString(),
                 new Vec3(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5),
                 0, 0
-        ), false);
+        ), false, TeleportManager.Type.SPAWN);
         return 1;
     }
 
@@ -97,7 +97,7 @@ public class MiscTeleportCommands {
             return 0;
         }
 
-        TeleportManager.requestTeleport(player, loc, false);
+        TeleportManager.requestTeleport(player, loc, false, TeleportManager.Type.BACK);
         return 1;
     }
 
@@ -167,7 +167,7 @@ public class MiscTeleportCommands {
                             dimensionId,
                             new Vec3(pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5),
                             p.getYRot(), p.getXRot()
-                    ), false);
+                    ), false, TeleportManager.Type.RTP);
                     return;
                 }
 

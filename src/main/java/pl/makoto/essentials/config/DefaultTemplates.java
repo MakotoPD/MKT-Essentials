@@ -29,7 +29,10 @@ final class DefaultTemplates {
             general:
               # Prefix shown before all mod messages (supports & color codes)
               message-prefix: "&8[&6MKT&8] &r"
-              # Maximum homes per player (LuckPerms meta can override: mktessentials.max_homes.<number>)
+              # Maximum homes per player. Override per rank with either:
+              #   - dynamic permission: mktessentials.homes.<number> (highest granted wins, e.g. mktessentials.homes.10);
+              #     mktessentials.homes.* or .unlimited grants unlimited homes
+              #   - LuckPerms meta: mktessentials.max_homes
               max-homes: 3
 
             # ============================================
@@ -38,8 +41,15 @@ final class DefaultTemplates {
             teleportation:
               # Delay in seconds before teleport executes (0 = instant)
               delay: 3
-              # Cooldown between teleports in seconds (0 = no cooldown)
+              # Cooldown between teleports in seconds (0 = no cooldown). This is the global/default cooldown.
               cooldown: 10
+              # Per-type cooldown overrides (-1 = inherit the global "cooldown" above).
+              # Each teleport type runs its own independent cooldown clock, so /tpa does not block /rtp.
+              # Can also be overridden per rank with LuckPerms meta:
+              #   mktessentials.teleport_cooldown.tpa / .rtp / .warp (or mktessentials.teleport_cooldown for all types)
+              cooldown-tpa: -1
+              cooldown-rtp: -1
+              cooldown-warp: -1
               # Play sound and particle effects on teleport
               effects: true
               # Seconds before a TPA request expires
@@ -114,6 +124,28 @@ final class DefaultTemplates {
               login-timeout-seconds: 60
               # Minutes of invulnerability for first-time players (0 = disabled)
               newbie-protection-minutes: 30
+              # Optional: mirror link/unlink events to an external backend (e.g. a website
+              # panel / shared database). Leave disabled unless you run such a backend.
+              web-sync:
+                enabled: false
+                # Endpoint receiving POST {action,minecraftUuid,minecraftUsername,discordId,discordUsername,discordAvatar}
+                url: ""
+                # Sent as "Authorization: Bearer <secret>"
+                secret: ""
+                # On server start, push all currently linked accounts to the endpoint
+                # (idempotent upsert) so the backend stays in sync even if it was offline earlier.
+                backfill-on-start: false
+                # Inbound HTTP channel (reverse of the sync above): lets the backend tell
+                # the mod to unlink an account in-game (e.g. a "Disconnect" button in a web
+                # panel). Without it, clearing the account on the backend leaves it linked
+                # on the server and gets overwritten by the next backfill.
+                api:
+                  enabled: false
+                  # Bind address — keep 127.0.0.1 if the backend runs on the same machine.
+                  bind: "127.0.0.1"
+                  port: 8766
+                  # Bearer secret the backend must send. Leave empty to reuse web-sync.secret.
+                  secret: ""
 
             # ============================================
             #  Shadowban

@@ -59,8 +59,11 @@ public class HomeCommands {
 
         PlayerData data = DataManager.getPlayerData(player.getUUID());
         
-        // Check home limit
-        int maxHomes = Permissions.getIntPermission(player, "mktessentials.max_homes", pl.makoto.essentials.config.Settings.getMaxHomes());
+        // Check home limit. Resolution order: dynamic permission (mktessentials.homes.<n>),
+        // then LuckPerms meta (mktessentials.max_homes), then config default.
+        int configDefault = pl.makoto.essentials.config.Settings.getMaxHomes();
+        int metaMax = Permissions.getIntPermission(player, "mktessentials.max_homes", configDefault);
+        int maxHomes = Permissions.getMaxNumberPermission(player, "mktessentials.homes", metaMax);
         if (data.getHomes().size() >= maxHomes && !data.getHomes().containsKey(name)) {
             source.sendFailure(MessageUtils.prefixed("&cYou have reached your maximum number of homes (" + maxHomes + ")!"));
             return 0;
@@ -90,7 +93,7 @@ public class HomeCommands {
             return 0;
         }
 
-        TeleportManager.requestTeleport(player, loc, false);
+        TeleportManager.requestTeleport(player, loc, false, TeleportManager.Type.HOME);
         return 1;
     }
 

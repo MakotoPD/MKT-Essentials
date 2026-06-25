@@ -1,5 +1,6 @@
 package pl.makoto.essentials.config;
 
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 import pl.makoto.essentials.MKTEssentials;
 
@@ -22,6 +23,9 @@ public final class ConfigManager {
         writeDefaultIfMissing(configDir.resolve("settings.yml"), DefaultTemplates.SETTINGS_YML);
         writeDefaultIfMissing(configDir.resolve("commands.yml"), DefaultTemplates.COMMANDS_YML);
         writeDefaultIfMissing(configDir.resolve("messages.yml"), DefaultTemplates.MESSAGES_YML);
+        // dopisz brakujące klucze do istniejącego settings.yml (po aktualizacji moda),
+        // zachowując wartości i własne sekcje użytkownika
+        mergeMissingKeys(configDir.resolve("settings.yml"), DefaultTemplates.SETTINGS_YML);
         writeDefaultIfMissing(langDir.resolve("en_us.yml"), DefaultTemplates.LANG_EN_US);
         writeDefaultIfMissing(langDir.resolve("pl_pl.yml"), DefaultTemplates.LANG_PL_PL);
         loadAll();
@@ -68,6 +72,66 @@ public final class ConfigManager {
                 MKTEssentials.LOGGER.error("Failed to write default config: {}", file, e);
             }
         }
+    }
+
+    /**
+     * Dopisuje do istniejącego pliku klucze obecne w szablonie, a brakujące w pliku
+     * użytkownika (rekurencyjnie). Istniejące wartości i własne sekcje użytkownika
+     * zostają nietknięte. Zapisuje tylko gdy coś dodano.
+     * UWAGA: zapis przez snakeyaml nie zachowuje komentarzy — przy aktualizacji
+     * dodającej klucze plik traci komentarze (klucze i wartości pozostają).
+     */
+    private static void mergeMissingKeys(Path file, String templateContent) {
+        if (!Files.exists(file)) return;
+        Map<String, Object> user = parseYaml(file);
+        if (user == null) return; // nie nadpisujemy uszkodzonego pliku
+        Object tpl;
+        try {
+            tpl = new Yaml().load(templateContent);
+        } catch (Exception e) {
+            return;
+        }
+        if (!(tpl instanceof Map<?, ?> templateMap)) return;
+
+        Map<String, Object> merged = new LinkedHashMap<>(user);
+        @SuppressWarnings("unchecked")
+        boolean changed = deepMergeMissing(merged, (Map<String, Object>) templateMap);
+        if (!changed) return;
+
+        try {
+            DumperOptions opts = new DumperOptions();
+            opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            opts.setPrettyFlow(true);
+            opts.setIndent(2);
+            String out = new Yaml(opts).dump(merged);
+            Files.writeString(file, out, StandardCharsets.UTF_8);
+            MKTEssentials.LOGGER.info("Uzupełniono brakujące klucze w {} (wartości zachowane).", file.getFileName());
+        } catch (IOException e) {
+            MKTEssentials.LOGGER.error("Nie udało się zapisać scalonego configu: {}", file, e);
+        }
+    }
+
+    /** Dodaje brakujące klucze z defaults do user (rekurencyjnie po mapach). Zwraca true gdy coś dodano. */
+    @SuppressWarnings("unchecked")
+    private static boolean deepMergeMissing(Map<String, Object> user, Map<String, Object> defaults) {
+        boolean changed = false;
+        for (Map.Entry<String, Object> e : defaults.entrySet()) {
+            String key = e.getKey();
+            Object def = e.getValue();
+            if (!user.containsKey(key)) {
+                user.put(key, def);
+                changed = true;
+            } else if (user.get(key) instanceof Map<?, ?> uSub && def instanceof Map<?, ?> dSub) {
+                // scalaj tylko gdy oba są mapami; w razie potrzeby zamień na mutowalną
+                Map<String, Object> mutable = new LinkedHashMap<>((Map<String, Object>) uSub);
+                if (deepMergeMissing(mutable, (Map<String, Object>) dSub)) {
+                    user.put(key, mutable);
+                    changed = true;
+                }
+            }
+            // w przeciwnym razie: użytkownik ma wartość (skalar/lista) → zostawiamy bez zmian
+        }
+        return changed;
     }
 
     static Map<String, Object> parseYaml(Path file) {

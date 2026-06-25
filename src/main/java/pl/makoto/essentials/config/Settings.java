@@ -13,6 +13,10 @@ public final class Settings {
     // Teleportation
     private static int teleportDelay = 3;
     private static int teleportCooldown = 10;
+    // Per-type cooldown overrides (-1 = inherit the global teleportCooldown)
+    private static int teleportCooldownTpa = -1;
+    private static int teleportCooldownRtp = -1;
+    private static int teleportCooldownWarp = -1;
     private static boolean teleportEffects = true;
     private static int tpaTimeout = 60;
 
@@ -54,6 +58,18 @@ public final class Settings {
     private static String discordLinkCommandName = "link";
     private static String discordLinkedRoleId = "";
     private static boolean discordShowPlayerCount = true;
+
+    // Web sync (opcjonalna integracja linkowania z zewnętrznym backendem, np. panel www)
+    private static boolean webSyncEnabled = false;
+    private static String webSyncUrl = "";
+    private static String webSyncSecret = "";
+    private static boolean webSyncBackfillOnStart = false;
+
+    // Web API — kanał przychodzący (panel www → mod), np. rozłączanie kont z panelu
+    private static boolean webApiEnabled = false;
+    private static String webApiBind = "127.0.0.1";
+    private static int webApiPort = 8766;
+    private static String webApiSecret = "";
 
     // Messages
     private static String chatFormat = "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}";
@@ -97,6 +113,16 @@ public final class Settings {
     public static int getMaxHomes() { return maxHomes; }
     public static int getTeleportDelay() { return teleportDelay; }
     public static int getTeleportCooldown() { return teleportCooldown; }
+    /** Cooldown (seconds) for a teleport type key (tpa/rtp/warp/...), falling back to the global cooldown. */
+    public static int getTeleportCooldown(String type) {
+        int override = switch (type) {
+            case "tpa" -> teleportCooldownTpa;
+            case "rtp" -> teleportCooldownRtp;
+            case "warp" -> teleportCooldownWarp;
+            default -> -1;
+        };
+        return override >= 0 ? override : teleportCooldown;
+    }
     public static boolean getTeleportEffects() { return teleportEffects; }
     public static int getTpaTimeout() { return tpaTimeout; }
     public static int getRtpMinDistance() { return rtpMinDistance; }
@@ -167,6 +193,15 @@ public final class Settings {
     public static String getDiscordLinkCommandName() { return discordLinkCommandName; }
     public static String getDiscordLinkedRoleId() { return discordLinkedRoleId; }
     public static boolean isDiscordShowPlayerCount() { return discordShowPlayerCount; }
+    public static boolean isWebSyncEnabled() { return webSyncEnabled; }
+    public static String getWebSyncUrl() { return webSyncUrl; }
+    public static String getWebSyncSecret() { return webSyncSecret; }
+    public static boolean isWebSyncBackfillOnStart() { return webSyncBackfillOnStart; }
+    public static boolean isWebApiEnabled() { return webApiEnabled; }
+    public static String getWebApiBind() { return webApiBind; }
+    public static int getWebApiPort() { return webApiPort; }
+    /** Sekret web-api; jeśli pusty, używa wspólnego sekretu web-sync. */
+    public static String getWebApiSecret() { return webApiSecret.isBlank() ? webSyncSecret : webApiSecret; }
 
     // Loaders (called by ConfigManager)
     @SuppressWarnings("unchecked")
@@ -176,6 +211,9 @@ public final class Settings {
         maxHomes = ConfigManager.getNestedValue(map, "general.max-homes", 3);
         teleportDelay = ConfigManager.getNestedValue(map, "teleportation.delay", 3);
         teleportCooldown = ConfigManager.getNestedValue(map, "teleportation.cooldown", 10);
+        teleportCooldownTpa = ConfigManager.getNestedValue(map, "teleportation.cooldown-tpa", -1);
+        teleportCooldownRtp = ConfigManager.getNestedValue(map, "teleportation.cooldown-rtp", -1);
+        teleportCooldownWarp = ConfigManager.getNestedValue(map, "teleportation.cooldown-warp", -1);
         teleportEffects = ConfigManager.getNestedValue(map, "teleportation.effects", true);
         tpaTimeout = ConfigManager.getNestedValue(map, "teleportation.tpa-timeout", 60);
         rtpMinDistance = ConfigManager.getNestedValue(map, "rtp.min-distance", 500);
@@ -294,5 +332,15 @@ public final class Settings {
         discordLinkCommandName = ConfigManager.getNestedValue(map, "discord.link-command-name", "link");
         discordLinkedRoleId = ConfigManager.getNestedValue(map, "discord.linked-role-id", "");
         discordShowPlayerCount = ConfigManager.getNestedValue(map, "discord.show-player-count", true);
+
+        webSyncEnabled = ConfigManager.getNestedValue(map, "auth.web-sync.enabled", false);
+        webSyncUrl = ConfigManager.getNestedValue(map, "auth.web-sync.url", "");
+        webSyncSecret = ConfigManager.getNestedValue(map, "auth.web-sync.secret", "");
+        webSyncBackfillOnStart = ConfigManager.getNestedValue(map, "auth.web-sync.backfill-on-start", false);
+
+        webApiEnabled = ConfigManager.getNestedValue(map, "auth.web-sync.api.enabled", false);
+        webApiBind = ConfigManager.getNestedValue(map, "auth.web-sync.api.bind", "127.0.0.1");
+        webApiPort = ConfigManager.getNestedValue(map, "auth.web-sync.api.port", 8766);
+        webApiSecret = ConfigManager.getNestedValue(map, "auth.web-sync.api.secret", "");
     }
 }

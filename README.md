@@ -1,16 +1,348 @@
 # MKT Essentials
 
-A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with stability and compatibility in mind.
+A powerful and lightweight Essentials mod for **NeoForge 1.21.1**, designed with stability and compatibility in mind. Teleportation, chat, kits, moderation, an authentication system with an embedded Discord bot, inventory backups, item cleanup and much more — all configurable via YAML.
 
-> ⚠️ **Important Compatibility Notes**
+- **Minecraft:** 1.21.1
+- **Loader:** NeoForge 21.1.228+
+- **Java:** 21
+- **Mod ID:** `mktessentials`
+- **Current version:** 0.4.0
+
+---
+
+## 📑 Table of Contents
+
+1. [Installation](#-installation)
+2. [Dependencies & Compatibility](#-dependencies--compatibility)
+3. [First-Run & Config Layout](#-first-run--config-layout)
+4. [Tutorial: Authentication System](#-tutorial-authentication-system)
+5. [Tutorial: Discord Bot](#-tutorial-discord-bot)
+6. [Tutorial: Permissions (LuckPerms)](#-tutorial-permissions-luckperms)
+7. [Tutorial: Placeholders & TAB](#-tutorial-placeholders--tab)
+8. [Tutorial: Website / Backend Sync](#-tutorial-website--backend-sync)
+9. [Features](#-features)
+10. [Command Reference](#-command-reference)
+11. [Configuration Reference](#-configuration-reference)
+12. [Building from Source](#-building-from-source)
+13. [Troubleshooting](#-troubleshooting)
+14. [License](#-license)
+
+---
+
+## 📥 Installation
+
+1. Install **NeoForge 1.21.1** (version 21.1.228 or newer) on your server.
+2. Download `mktessentials-0.4.0.jar`.
+3. Drop the JAR into your server's `mods/` folder.
+4. (Optional) Install the integration mods below into the same `mods/` folder.
+5. Start the server once to generate the config files, then stop it, edit the configs, and start again.
+
+All bundled libraries (JDA, SQLite, jBCrypt, Jackson, etc.) are shipped **inside** the mod JAR — you do not need to install them separately.
+
+---
+
+## 🔌 Dependencies & Compatibility
+
+The mod runs standalone. Every integration is **optional** and auto-detected at startup.
+
+| Mod | What it unlocks | Required? |
+|-----|-----------------|-----------|
+| [LuckPerms (patched)](https://github.com/onmydestiny/LuckPerms-PATCHED) | Permissions, prefixes/suffixes, per-group chat | Recommended |
+| [Text Placeholder API (NeoForge port)](https://github.com/MakotoPD/TextPlaceholderAPI-NeoForge) | `%mktessentials:...%` placeholders in chat/tab | Optional |
+| TAB | Tab-list placeholders | Optional |
+| Curios API | `/invsee` shows Curios slots | Optional |
+
+> ⚠️ **Important compatibility notes**
 >
-> - **LuckPerms** — The official NeoForge 1.21.1 build has a known bug. Use the [patched version](https://github.com/onmydestiny/LuckPerms-PATCHED) instead.
-> - **Text Placeholder API** — No official NeoForge 1.21.1 release exists. Use the [NeoForge port](https://github.com/MakotoPD/TextPlaceholderAPI-NeoForge).
+> - **LuckPerms** — The official NeoForge 1.21.1 build has a known bug. Use the **patched version** linked above.
+> - **Text Placeholder API** — No official NeoForge 1.21.1 release exists. Use the **NeoForge port** linked above.
+
+Without LuckPerms the mod falls back to vanilla OP levels for permission checks.
+
+---
+
+## 🗂️ First-Run & Config Layout
+
+On first launch the mod creates:
+
+```
+config/mktessentials/
+├── settings.yml      — All settings (teleport, RTP, AFK, backups, auth, discord, items, warns)
+├── commands.yml      — Enable/disable individual commands
+├── messages.yml      — Chat format, join/quit messages, broadcasts, text commands
+├── accounts.db       — SQLite database (auth system — created when auth is enabled)
+└── lang/
+    ├── en_us.yml     — English messages
+    └── pl_pl.yml     — Polish messages
+```
+
+Per-world data (player homes, warps, kits, bans, IP bans, punishment history, spawn point) lives in `<world>/mktessentials/`.
+
+After editing configs, apply changes with `/mkt reload` (most settings) or restart the server (auth/Discord/web changes require a restart).
+
+To switch language, set `language: "pl_pl"` (or `en_us`) at the top of `settings.yml`.
+
+---
+
+## 🔐 Tutorial: Authentication System
+
+The auth system forces players to register/login and/or link a Discord account before they can play. Unauthenticated players are **frozen** (can't move, interact or chat).
+
+### Step 1 — Pick a mode
+
+In `settings.yml`:
+
+```yaml
+auth:
+  mode: "disabled"   # change this
+```
+
+| Mode | Requires password | Requires Discord link | Use case |
+|------|:-:|:-:|----------|
+| `disabled` | – | – | Auth turned off (default) |
+| `optional` | no | no | Players may register but aren't forced to |
+| `auth-only` | ✅ | – | Classic password login |
+| `link-only` | – | ✅ | Discord link only, no passwords |
+| `full` | ✅ | ✅ | Link Discord **and** set a password |
+
+### Step 2 — Tune the behaviour
+
+```yaml
+auth:
+  mode: "full"
+  session-timeout-hours: 24      # auto-login from the same IP within this window
+  max-login-attempts: 5          # failed logins before a kick
+  login-timeout-seconds: 60      # kick if not authenticated in time
+  newbie-protection-minutes: 30  # invulnerability for brand-new players (0 = off)
+```
+
+### Step 3 — Player flow
+
+- `/register <password> <password>` then `/login <password>`
+- In `full` / `link-only` mode players must link Discord first — see the next tutorial.
+
+### Admin commands
+
+| Command | Effect |
+|---------|--------|
+| `/auth reset <player>` | Wipe the account (password + link) |
+| `/auth unlink <player>` | Force-unlink the player's Discord |
+| `/auth info <player>` | Show UUID, Discord, registration & login info |
+
+> Passwords are hashed with **bcrypt** and stored in `accounts.db` — never in plaintext.
+
+---
+
+## 🤖 Tutorial: Discord Bot
+
+The mod embeds a **JDA** Discord bot that handles account linking via a slash command and can assign a "linked" role.
+
+### Step 1 — Create the application & bot
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) → **New Application**.
+2. Open the **Bot** tab → **Reset Token** → copy the token (you'll paste it into the config).
+3. Still on the **Bot** tab, scroll to **Privileged Gateway Intents** and enable:
+   - ✅ **Server Members Intent**
+
+   > 🚨 This step is **mandatory**. The bot requests the `GUILD_MEMBERS` intent to manage the linked role. If it is not enabled, the bot connects and is immediately disconnected with `CloseCode 4014 (DISALLOWED_INTENTS)` and you'll see `Failed to start Discord bot` in the console.
+
+4. Open **OAuth2 → URL Generator**, tick `bot` and `applications.commands`, give it at least **Manage Roles**, then open the generated URL to invite the bot to your server.
+5. Make sure the bot's role is **above** the role it should assign in your server's role list (otherwise Discord forbids the assignment).
+
+### Step 2 — Get the IDs
+
+Enable **Developer Mode** in Discord (User Settings → Advanced), then right-click to **Copy ID** for:
+- your **server** (guild ID)
+- the **role** you want linked players to receive (optional)
+
+### Step 3 — Configure the mod
+
+In `settings.yml`:
+
+```yaml
+discord:
+  enabled: true
+  bot-token: "YOUR_BOT_TOKEN"
+  guild-id: "YOUR_GUILD_ID"
+  link-command-name: "link"     # slash command players use, e.g. /link
+  linked-role-id: "ROLE_ID"     # leave "" to disable role assignment
+  show-player-count: true       # show online player count as bot status
+```
+
+Auth must also be enabled (`auth.mode` set to `full` or `link-only`) for linking to make sense.
+
+### Step 4 — Test the flow
+
+1. Restart the server. The console should print `Discord bot connected successfully.`
+2. In-game, run `/link` → you receive a 6-digit code (valid 5 minutes).
+3. On Discord, run the slash command (`/link <code>`).
+4. The bot links the account, assigns the role, and the player is let through.
+
+`/unlink` (in-game) or `/auth unlink <player>` (admin) reverses it.
+
+---
+
+## 🛡️ Tutorial: Permissions (LuckPerms)
+
+1. Install the [patched LuckPerms](https://github.com/onmydestiny/LuckPerms-PATCHED) into `mods/`.
+2. Grant permission nodes the usual way, e.g.:
+
+   ```
+   /lp group default permission set mktessentials.command.home true
+   /lp group vip permission set mktessentials.command.rtp true
+   /lp group admin permission set mktessentials.admin.* true
+   ```
+
+3. Use `/mkt permissions` in-game to print every node the mod registers.
+
+Prefixes/suffixes and primary groups set in LuckPerms are used by the chat format and TAB placeholders automatically. Without LuckPerms, the mod uses vanilla OP levels.
+
+### Per-rank limits & cooldowns
+
+Beyond simple on/off command nodes, a few limits scale per rank:
+
+| Node | Type | Effect |
+|------|------|--------|
+| `mktessentials.homes.<number>` | permission | Maximum homes for the rank. The **highest granted number wins**; `mktessentials.homes.*` or `mktessentials.homes.unlimited` grants unlimited homes. |
+| `mktessentials.max_homes` | meta | Alternative home limit (used when no `mktessentials.homes.<n>` permission is granted). Config `general.max-homes` is the final fallback. |
+| `mktessentials.teleport_cooldown.tpa` / `.rtp` / `.warp` | meta | Per-type teleport cooldown in seconds. |
+| `mktessentials.teleport_cooldown` | meta | Cooldown applied to **all** teleport types (legacy/global override). |
+| `mktessentials.teleport_delay` | meta | Warmup delay (seconds) before a teleport executes. |
+| `mktessentials.teleport.bypass` | permission | Skip teleport delay and all cooldowns. |
+
+```
+# Default players: 3 homes, 60s RTP cooldown (from config)
+# VIP: 10 homes + faster RTP
+/lp group vip permission set mktessentials.homes.10
+/lp group vip meta set mktessentials.teleport_cooldown.rtp 15
+
+# MVP: 25 homes, Admin: unlimited
+/lp group mvp permission set mktessentials.homes.25
+/lp group admin permission set mktessentials.homes.unlimited
+```
+
+> Each teleport type tracks its own cooldown clock, so using `/tpa` does not start the `/rtp` or `/warp` cooldown.
+
+---
+
+## 🏷️ Tutorial: Placeholders & TAB
+
+### Text Placeholder API
+
+Install the [NeoForge port](https://github.com/MakotoPD/TextPlaceholderAPI-NeoForge). The mod then exposes placeholders such as:
+
+```
+%mktessentials:name%        %mktessentials:nick%        %mktessentials:real_name%
+%mktessentials:prefix%      %mktessentials:suffix%      %mktessentials:full_name%
+%mktessentials:tab_full_name%
+```
+
+Use them in `messages.yml` chat/join/quit formats.
+
+### TAB
+
+If [TAB](https://github.com/NEZNAMY/TAB) is installed, reference the placeholders above directly in TAB's `config.yml`. The mod registers them on server start (`TAB — Tab list placeholders active` appears in the log).
+
+### Chat format example (`messages.yml`)
+
+```yaml
+chat:
+  format: "%mktessentials:dot%%mktessentials:prefix%%mktessentials:name%%mktessentials:suffix%&8: &f{message}"
+  group-formats:
+    admin: "&c[Admin] &f%mktessentials:name%&8: &f{message}"
+    vip:   "&6[VIP] &f%mktessentials:name%&8: &f{message}"
+```
+
+---
+
+## 🌐 Tutorial: Website / Backend Sync
+
+MKT Essentials can integrate with an external backend (e.g. a website panel sharing the same player database). There are **two independent channels**.
+
+### Channel 1 — Outbound (mod → backend)
+
+Whenever a player links or unlinks, the mod sends a `POST` to your backend so it stays in sync. The mod's SQLite is always the **source of truth** for auth; HTTP failures never affect the local state.
+
+```yaml
+auth:
+  web-sync:
+    enabled: true
+    url: "https://example.com/api/mc/link"   # receives the POST
+    secret: "A_LONG_RANDOM_SHARED_SECRET"    # sent as: Authorization: Bearer <secret>
+    backfill-on-start: true                   # on boot, push every linked account (idempotent)
+```
+
+Payload sent to your endpoint:
+
+```json
+{
+  "action": "link",              // or "unlink"
+  "minecraftUuid": "…",
+  "minecraftUsername": "…",
+  "discordId": "…",
+  "discordUsername": "…",
+  "discordAvatar": "…"
+}
+```
+
+### Channel 2 — Inbound (backend → mod)
+
+This is the reverse direction: it lets the backend tell the mod to **unlink an account in-game** — for example a "Disconnect" button in a web admin panel. Without it, clearing the account only on the backend leaves it linked on the server, and the next `backfill-on-start` would overwrite the change.
+
+```yaml
+auth:
+  web-sync:
+    api:
+      enabled: true
+      bind: "127.0.0.1"   # keep localhost if the backend runs on the same machine/VPS
+      port: 8766
+      secret: ""           # leave empty to reuse web-sync.secret above
+```
+
+> 🔒 **Security:** keep `bind: "127.0.0.1"` unless the backend lives on another host. If you must expose it, put it behind a firewall/reverse proxy and use a strong, unique `secret`. The endpoint authenticates with `Authorization: Bearer <secret>`.
+
+**Endpoint:**
+
+```
+POST http://<bind>:<port>/unlink
+Authorization: Bearer <secret>
+Content-Type: application/json
+
+{ "discordId": "123456789012345678" }
+```
+
+You may send `{"minecraftUuid": "…"}` instead of `discordId` (with or without dashes).
+
+**Responses:**
+
+| Status | Meaning |
+|--------|---------|
+| `200 {"ok":true}` | Account unlinked in-game (role removed, session cleared, player re-frozen if online) |
+| `401` | Missing/invalid bearer secret |
+| `400` | Neither `discordId` nor `minecraftUuid` provided |
+| `404 {"error":"account_not_found"}` | No matching linked account in the mod's database |
+
+When both channels are enabled, an inbound unlink also fires an outbound `unlink` echo, keeping the backend consistent even if the unlink originated in-game.
+
+#### Example: Nuxt/Node backend calling the mod
+
+```ts
+await fetch(`${process.env.MC_MOD_API_URL}/unlink`, {   // e.g. http://127.0.0.1:8766
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${process.env.MC_LINK_SECRET}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ discordId })
+})
+```
+
+---
 
 ## 🚀 Features
 
 ### 🏠 Teleportation
-- **Homes** — `/sethome`, `/home`, `/delhome`, `/listhomes`
+- **Homes** — `/sethome`, `/home`, `/delhome`, `/listhomes` with **per-rank home limits** (dynamic LuckPerms permission `mktessentials.homes.<number>`)
 - **Warps** — `/setwarp`, `/warp`, `/delwarp`, `/warps` (clickable GUI), `/listwarps`
 - **TPA** — `/tpa`, `/tpahere`, `/tpaccept`, `/tpdeny`, `/tpacancel` (multiple pending requests)
 - **TP toggle** — `/tptoggle` block incoming teleport requests
@@ -20,6 +352,7 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Top** — `/top` teleport to highest block
 - **TpAll** — `/tpall` teleport all players to you
 - **TP shortcuts** — `/tp <player>`, `/tphere <player>`, `/tppos <x> <y> <z>`
+- **Per-type cooldowns** — Independent cooldowns for TPA, RTP and Warps; set globally in config or per rank via LuckPerms meta (`/tpa` no longer blocks `/rtp`)
 
 ### 💬 Chat & Identity
 - **Nicknames** — `/nick` custom display names
@@ -71,6 +404,7 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 - **Freeze System** — Unauthenticated players can't move/interact/chat
 - **Newbie Protection** — Configurable invulnerability for first-time players
 - **Session Management** — Auto-login from same IP within timeout
+- **Web sync** — Optional two-way sync with an external backend / website panel
 - **Admin** — `/auth reset|unlink|info <player>`
 
 ### 💾 Inventory Backups
@@ -232,24 +566,9 @@ A powerful and lightweight Essentials mod for NeoForge 1.21.1, designed with sta
 | `/mkt reload` | Reload configuration | `mktessentials.admin.reload` |
 | `/mkt permissions` | List all permission nodes | `mktessentials.admin.permissions` |
 
-## ⚙️ Configuration
+## ⚙️ Configuration Reference
 
-YAML-based configuration in `config/mktessentials/`:
-
-```
-config/mktessentials/
-├── settings.yml      — All settings (teleport, RTP, AFK, backups, auth, discord, items, warns)
-├── commands.yml      — Enable/disable individual commands
-├── messages.yml      — Chat format, join/quit messages, broadcasts, text commands
-├── accounts.db       — SQLite database (auth system)
-└── lang/
-    ├── en_us.yml     — English messages
-    └── pl_pl.yml     — Polish messages
-```
-
-Player data, warps, kits, bans, IP bans, punishment history and the spawn point are stored per-world in `<world>/mktessentials/`.
-
-### Command Toggle
+### Command Toggle (`commands.yml`)
 ```yaml
 admin:
   fly: true
@@ -257,12 +576,12 @@ admin:
   vanish: false  # disabled
 ```
 
-### Internationalization
+### Internationalization (`settings.yml`)
 ```yaml
 language: "pl_pl"
 ```
 
-### Per-Group Chat Format
+### Per-Group Chat Format (`messages.yml`)
 ```yaml
 chat:
   group-formats:
@@ -270,7 +589,7 @@ chat:
     vip: "&6[VIP] &f%mktessentials:name%&8: &f{message}"
 ```
 
-### Text Commands
+### Text Commands (`messages.yml`)
 ```yaml
 text-commands:
   rules:
@@ -280,37 +599,76 @@ text-commands:
       - "&71. Be respectful to other players."
 ```
 
-### Warn Escalation
+### Warn Escalation (`settings.yml`)
 ```yaml
 moderation:
   max-warns: 3              # active warns that trigger an automatic tempban (0 = off)
   warn-ban-duration: "1d"   # tempban length when the limit is reached
 ```
 
-## 🛠️ Requirements
+### Teleportation (`settings.yml`)
+```yaml
+general:
+  max-homes: 3              # default home limit (override per rank with mktessentials.homes.<n>)
 
-- **NeoForge** 1.21.1 (v21.1.228+)
-- **Java** 21
+teleportation:
+  delay: 3                  # warmup seconds before a teleport executes (0 = instant)
+  cooldown: 10              # global/default cooldown between teleports (0 = none)
+  cooldown-tpa: -1          # per-type overrides (-1 = inherit "cooldown" above)
+  cooldown-rtp: -1
+  cooldown-warp: -1
+  effects: true
+  tpa-timeout: 60
+```
+Per-rank cooldowns are set with LuckPerms meta (`mktessentials.teleport_cooldown.tpa|rtp|warp`), which takes priority over these config values.
 
-## 🔗 Optional Integrations
+### RTP (`settings.yml`)
+```yaml
+rtp:
+  min-distance: 500
+  max-distance: 5000
+  relative-to-player: true
+  center-x: 0.0
+  center-z: 0.0
+  biome-blacklist:
+    - "minecraft:ocean"
+    - "minecraft:deep_ocean"
+    - "minecraft:river"
+```
 
-| Mod | Integration |
-|-----|-------------|
-| **LuckPerms** | Permissions, prefixes/suffixes, per-group chat format |
-| **Text Placeholder API** | Placeholder support in chat/tab (`%mktessentials:...%`) |
-| **TAB** | Tab list placeholders (`%mkt_full_name%`, `%mkt_prefix%`, `%mkt_suffix%`) |
-| **Curios API** | /invsee shows Curios slots |
-| **Discord** | Embedded bot for account linking (JDA) |
+### Item Management (`settings.yml`)
+```yaml
+items:
+  despawn-time: 300       # seconds (0 = disabled)
+  stacking: true
+  stacking-radius: 3
+  show-hologram: true
+  sweep-interval: 0       # seconds (0 = disabled)
+  sweep-warning: 30
+  max-stack-size: 64
+  whitelist:
+    - "minecraft:netherite_*"
+    - "create:brass_ingot"
+```
 
-All integrations are optional — the mod works without them.
-
-## 📦 Building
+## 📦 Building from Source
 
 ```bash
 ./gradlew build
 ```
 
-Output JAR: `build/libs/mktessentials-1.0.0.jar`
+Output JAR: `build/libs/mktessentials-0.4.0.jar`
+
+## 🩺 Troubleshooting
+
+| Symptom | Cause & Fix |
+|---------|-------------|
+| `Failed to start Discord bot` + `CloseCode 4014 (DISALLOWED_INTENTS)` | **Server Members Intent** is not enabled in the Discord Developer Portal. Enable it on the **Bot** tab and restart. |
+| `Discord bot token is empty — bot will not start.` | Set `discord.bot-token` in `settings.yml` and `discord.enabled: true`. |
+| Slash command shows "application did not respond" / `NoClassDefFoundError` | Re-download the latest JAR — all JDA transitive libraries are bundled in current builds. |
+| Web "Disconnect" button doesn't actually unlink | Enable the [inbound web API](#channel-2--inbound-backend--mod) (`auth.web-sync.api.enabled: true`) and point your backend at it; clearing only the backend DB gets reverted by `backfill-on-start`. |
+| LuckPerms not loading on 1.21.1 | Use the [patched LuckPerms](https://github.com/onmydestiny/LuckPerms-PATCHED). |
+| Permissions ignored | Without LuckPerms the mod uses vanilla OP. Install LuckPerms and grant `mktessentials.*` nodes. |
 
 ## 📄 License
 

@@ -86,7 +86,7 @@ public class WarpsMenu extends ChestMenu {
             viewer.sendSystemMessage(MessageUtils.prefixed("&cWarp '" + name + "' no longer exists."));
             return;
         }
-        TeleportManager.requestTeleport(viewer, loc, false);
+        TeleportManager.requestTeleport(viewer, loc, false, TeleportManager.Type.WARP);
     }
 
     @Override

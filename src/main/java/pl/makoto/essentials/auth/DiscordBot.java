@@ -173,6 +173,17 @@ public final class DiscordBot extends ListenerAdapter {
         event.deferReply(true).queue();
         server.execute(() -> {
             AuthManager.LinkResult result = AuthManager.completeLinking(code, discordId);
+            if (result == AuthManager.LinkResult.SUCCESS) {
+                // mirror do zewnętrznego backendu (panel www), jeśli skonfigurowano
+                AccountDatabase.AccountRecord acc = AccountDatabase.getAccountByDiscordId(discordId);
+                String mcUuid = acc != null ? acc.mcUuid() : null;
+                String mcName = acc != null ? acc.mcName() : null;
+                if (mcName == null && mcUuid != null) {
+                    var p = server.getPlayerList().getPlayer(java.util.UUID.fromString(mcUuid));
+                    if (p != null) mcName = p.getGameProfile().getName();
+                }
+                WebSync.linked(mcUuid, mcName, discordId, event.getUser().getName(), event.getUser().getEffectiveAvatarUrl());
+            }
             String reply = switch (result) {
                 case SUCCESS -> "\u2705 Your Minecraft account has been linked successfully!";
                 case CODE_INVALID -> "\u274c Invalid or expired link code. Please generate a new one in-game with `/link`.";

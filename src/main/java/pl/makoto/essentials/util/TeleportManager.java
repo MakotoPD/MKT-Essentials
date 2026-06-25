@@ -23,37 +23,63 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @EventBusSubscriber(modid = MKTEssentials.MODID)
 public class TeleportManager {
+    /**
+     * Teleport category. Each type carries its own cooldown, resolved independently so that, e.g.,
+     * using /tpa does not block /rtp. The {@code key} is used to build per-type config and
+     * LuckPerms nodes (e.g. {@code mktessentials.teleport_cooldown.tpa}).
+     */
+    public enum Type {
+        DEFAULT("default"),
+        HOME("home"),
+        TPA("tpa"),
+        RTP("rtp"),
+        WARP("warp"),
+        BACK("back"),
+        SPAWN("spawn");
+
+        public final String key;
+        Type(String key) { this.key = key; }
+    }
+
     private static final Map<UUID, PendingTeleport> pendingTeleports = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
+    // Cooldowns are tracked per (player, type) so each teleport category expires on its own clock.
+    private static final Map<UUID, Map<Type, Long>> cooldowns = new ConcurrentHashMap<>();
 
     public static void requestTeleport(ServerPlayer player, PlayerData.SavedLocation loc, boolean ignoreDelay) {
+        requestTeleport(player, loc, ignoreDelay, Type.DEFAULT);
+    }
+
+    public static void requestTeleport(ServerPlayer player, PlayerData.SavedLocation loc, boolean ignoreDelay, Type type) {
         UUID uuid = player.getUUID();
         boolean bypass = Permissions.hasPermission(player, "mktessentials.teleport.bypass", 2);
-        
-        // Check Cooldown
+
+        // Check Cooldown for this teleport type
         long now = System.currentTimeMillis();
-        Long cooldownEnd = cooldowns.get(uuid);
-        if (cooldownEnd != null) {
-            long remaining = (cooldownEnd - now) / 1000;
-            if (remaining <= 0) {
-                cooldowns.remove(uuid);
-            } else if (!ignoreDelay && !bypass) {
-                player.sendSystemMessage(MessageUtils.prefixed("&cYou must wait " + remaining + " seconds before teleporting again."));
-                return;
+        Map<Type, Long> playerCooldowns = cooldowns.get(uuid);
+        if (playerCooldowns != null) {
+            Long cooldownEnd = playerCooldowns.get(type);
+            if (cooldownEnd != null) {
+                long remaining = (cooldownEnd - now) / 1000;
+                if (remaining <= 0) {
+                    playerCooldowns.remove(type);
+                } else if (!ignoreDelay && !bypass) {
+                    player.sendSystemMessage(MessageUtils.prefixed("&cYou must wait " + remaining + " seconds before teleporting again."));
+                    return;
+                }
             }
         }
 
         int delay = (ignoreDelay || bypass) ? 0 : Permissions.getIntPermission(player, "mktessentials.teleport_delay", Settings.getTeleportDelay());
-        
+
         if (delay <= 0) {
-            executeTeleport(player, loc);
+            executeTeleport(player, loc, type);
         } else {
             player.sendSystemMessage(MessageUtils.prefixed("&7Teleporting in &6" + delay + " &7seconds. Don't move!"));
-            
+
             // Pre-load chunks at destination
             preLoadChunks(player, loc);
-            
-            pendingTeleports.put(uuid, new PendingTeleport(loc, player.position(), now + (delay * 1000L)));
+
+            pendingTeleports.put(uuid, new PendingTeleport(loc, player.position(), now + (delay * 1000L), type));
         }
     }
 
@@ -69,15 +95,30 @@ public class TeleportManager {
         }
     }
 
-    private static void executeTeleport(ServerPlayer player, PlayerData.SavedLocation loc) {
+    private static void executeTeleport(ServerPlayer player, PlayerData.SavedLocation loc, Type type) {
         TeleportUtils.teleport(player, loc);
         player.sendSystemMessage(MessageUtils.prefixed("&aTeleported successfully!"));
-        
-        // Set Cooldown
-        int cooldown = Permissions.getIntPermission(player, "mktessentials.teleport_cooldown", Settings.getTeleportCooldown());
+
+        // Set Cooldown for this teleport type
+        int cooldown = resolveCooldown(player, type);
         if (cooldown > 0) {
-            cooldowns.put(player.getUUID(), System.currentTimeMillis() + (cooldown * 1000L));
+            cooldowns.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
+                    .put(type, System.currentTimeMillis() + (cooldown * 1000L));
         }
+    }
+
+    /**
+     * Resolves the cooldown (seconds) for a teleport type. Resolution order:
+     * <ol>
+     *   <li>LuckPerms meta {@code mktessentials.teleport_cooldown.<type>}</li>
+     *   <li>LuckPerms meta {@code mktessentials.teleport_cooldown} (legacy, applies to all types)</li>
+     *   <li>config {@code teleportation.cooldown-<type>}, falling back to {@code teleportation.cooldown}</li>
+     * </ol>
+     */
+    private static int resolveCooldown(ServerPlayer player, Type type) {
+        int typed = Permissions.getIntPermission(player, "mktessentials.teleport_cooldown." + type.key, Integer.MIN_VALUE);
+        if (typed != Integer.MIN_VALUE) return typed;
+        return Permissions.getIntPermission(player, "mktessentials.teleport_cooldown", Settings.getTeleportCooldown(type.key));
     }
 
     public static void cleanupPlayer(UUID uuid) {
@@ -116,7 +157,7 @@ public class TeleportManager {
             }
 
             if (now >= pending.executeAt) {
-                executeTeleport(player, pending.targetLoc);
+                executeTeleport(player, pending.targetLoc, pending.type);
                 it.remove();
             }
         }
@@ -126,12 +167,14 @@ public class TeleportManager {
         final PlayerData.SavedLocation targetLoc;
         final Vec3 startPos;
         final long executeAt;
+        final Type type;
         long lastMessageSeconds = -1;
 
-        PendingTeleport(PlayerData.SavedLocation targetLoc, Vec3 startPos, long executeAt) {
+        PendingTeleport(PlayerData.SavedLocation targetLoc, Vec3 startPos, long executeAt, Type type) {
             this.targetLoc = targetLoc;
             this.startPos = startPos;
             this.executeAt = executeAt;
+            this.type = type;
         }
     }
 }

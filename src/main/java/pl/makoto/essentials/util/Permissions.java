@@ -77,4 +77,54 @@ public class Permissions {
 
         return defaultValue;
     }
+
+    /**
+     * Resolves a numeric limit from dynamic permission nodes of the form {@code <prefix>.<number>},
+     * EssentialsX-style. Scans every permission granted to the player and returns the highest number
+     * found. {@code <prefix>.*} or {@code <prefix>.unlimited} grant {@link Integer#MAX_VALUE}.
+     * Falls back to {@code defaultValue} when LuckPerms is absent or no matching node is granted.
+     *
+     * <p>Example: granting {@code mktessentials.homes.10} to a rank gives that rank 10 homes.</p>
+     */
+    public static int getMaxNumberPermission(ServerPlayer player, String prefix, int defaultValue) {
+        if (player == null) return defaultValue;
+
+        if (luckPermsAvailable) {
+            try {
+                User user = luckPerms.getUserManager().getUser(player.getUUID());
+                if (user != null) {
+                    CachedPermissionData permissionData = user.getCachedData().getPermissionData();
+                    int max = Integer.MIN_VALUE;
+                    boolean found = false;
+                    String dotted = prefix + ".";
+
+                    for (java.util.Map.Entry<String, Boolean> entry : permissionData.getPermissionMap().entrySet()) {
+                        if (!entry.getValue()) continue; // only granted (true) nodes
+                        String node = entry.getKey();
+                        if (!node.startsWith(dotted)) continue;
+
+                        String suffix = node.substring(dotted.length());
+                        if (suffix.equals("*") || suffix.equalsIgnoreCase("unlimited")) {
+                            return Integer.MAX_VALUE;
+                        }
+                        try {
+                            int n = Integer.parseInt(suffix);
+                            if (n > max) {
+                                max = n;
+                                found = true;
+                            }
+                        } catch (NumberFormatException ignored) {
+                            // non-numeric suffix, skip
+                        }
+                    }
+
+                    if (found) return max;
+                }
+            } catch (NoClassDefFoundError e) {
+                luckPermsAvailable = false;
+            }
+        }
+
+        return defaultValue;
+    }
 }
