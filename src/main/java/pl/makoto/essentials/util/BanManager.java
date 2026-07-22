@@ -59,6 +59,21 @@ public class BanManager {
         return bans.get(uuid.toString());
     }
 
+    /** All currently active (non-expired) bans, keyed by UUID. Does not mutate/persist state. */
+    public static Map<UUID, BanEntry> getActiveBans() {
+        Map<UUID, BanEntry> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, BanEntry> e : bans.entrySet()) {
+            if (!e.getValue().isExpired()) {
+                try {
+                    result.put(UUID.fromString(e.getKey()), e.getValue());
+                } catch (IllegalArgumentException ignored) {
+                    // skip malformed key
+                }
+            }
+        }
+        return result;
+    }
+
     public static void checkExpired(UUID uuid) {
         BanEntry entry = bans.get(uuid.toString());
         if (entry != null && entry.isExpired()) {

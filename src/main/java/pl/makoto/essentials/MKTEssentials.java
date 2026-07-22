@@ -26,7 +26,6 @@ import pl.makoto.essentials.commands.*;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import pl.makoto.essentials.util.MKTPlaceholders;
-import pl.makoto.essentials.util.TABHook;
 
 @Mod(MKTEssentials.MODID)
 public class MKTEssentials {
@@ -69,6 +68,13 @@ public class MKTEssentials {
         MKTCommand.register(dispatcher); // Always register /mkt
         if (Settings.isCommandEnabled("mute")) MuteCommands.register(dispatcher);
         MiscCommands.register(dispatcher); // help etc
+        RoleplayCommands.register(dispatcher); // /me /do /try
+        if (Settings.isMailEnabled()) MailCommands.register(dispatcher);
+        FunCommands.register(dispatcher); // /dice /coin /8ball /toponline
+        MaintenanceCommands.register(dispatcher);
+        PollCommands.register(dispatcher); // /poll /vote
+        GeoLocateCommands.register(dispatcher);
+        SocialCommands.register(dispatcher); // /stream /anon /online /symbol /chatsetting
         TimeWeatherCommands.register(dispatcher);
         if (Settings.isCommandEnabled("ban")) BanCommands.register(dispatcher);
         if (Settings.isCommandEnabled("banip")) IpBanCommands.register(dispatcher);
@@ -96,6 +102,8 @@ public class MKTEssentials {
         LOGGER.info("MKT Essentials starting...");
         server = event.getServer();
         ConfigManager.init();
+        pl.makoto.essentials.util.MaintenanceManager.setActive(Settings.isMaintenanceDefault());
+        pl.makoto.essentials.util.FaviconManager.reload();
         DataManager.init(server);
         BanManager.init(server);
         pl.makoto.essentials.util.IpBanManager.init(server);
@@ -105,10 +113,13 @@ public class MKTEssentials {
         AuthManager.init(server);
         LuckPermsHook.init();
         Permissions.init();
+        pl.makoto.essentials.util.IntegrationsManager.init();
+        // MKT placeholders always work internally; this only exposes them to the optional
+        // Text Placeholder API so other mods can use %mktessentials:*% too.
         try {
             MKTPlaceholders.register();
         } catch (NoClassDefFoundError e) {
-            LOGGER.info("Text Placeholder API not found — placeholders disabled.");
+            LOGGER.info("Text Placeholder API not found — MKT placeholders still work internally, just not exposed to other mods.");
         }
 
         // Clean up orphaned hologram ArmorStands from previous sessions
@@ -120,11 +131,6 @@ public class MKTEssentials {
 
     @SubscribeEvent
     public void onServerStarted(net.neoforged.neoforge.event.server.ServerStartedEvent event) {
-        // TAB must be initialized after all mods are fully loaded
-        TABHook.init();
-        if (TABHook.isPresent()) {
-            LOGGER.info("  ✓ TAB — Tab list placeholders active");
-        }
         LOGGER.info("MKT Essentials fully loaded.");
     }
 
@@ -150,6 +156,26 @@ public class MKTEssentials {
 
         if (net.neoforged.fml.ModList.get().isLoaded("curios")) {
             LOGGER.info("  ✓ Curios API — /invsee shows curios slots");
+        }
+
+        if (pl.makoto.essentials.util.IntegrationsManager.isTabPresent()) {
+            LOGGER.info("  ✓ TAB — native tablist/nametags {}",
+                    Settings.isIntegrationTab() ? "deferred to TAB" : "kept (hook off)");
+        }
+        if (pl.makoto.essentials.util.IntegrationsManager.isMiniMotdPresent()) {
+            LOGGER.info("  ✓ MiniMOTD — MOTD {}",
+                    Settings.isIntegrationMinimotd() ? "deferred to MiniMOTD" : "kept (hook off)");
+        }
+        if (pl.makoto.essentials.util.IntegrationsManager.isSkinsRestorerPresent()) {
+            LOGGER.info("  ✓ SkinsRestorer — greeting face uses player's skin");
+        }
+        if (pl.makoto.essentials.util.IntegrationsManager.isPlasmoVoicePresent()) {
+            LOGGER.info("  ✓ PlasmoVoice — /mute also silences voice {}",
+                    Settings.isIntegrationPlasmoVoice() ? "(on)" : "(hook off)");
+        }
+        if (pl.makoto.essentials.util.IntegrationsManager.isSimpleVoicePresent()) {
+            LOGGER.info("  ✓ Simple Voice Chat — /mute also silences voice {}",
+                    Settings.isIntegrationSimpleVoice() ? "(on)" : "(hook off)");
         }
 
         if (Settings.getAuthMode() != AuthMode.DISABLED) {

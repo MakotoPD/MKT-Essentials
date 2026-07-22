@@ -37,6 +37,13 @@ public class PlayerListener {
 
         UUID uuid = player.getUUID();
 
+        // Maintenance mode: only players with the bypass permission may join
+        if (MaintenanceManager.isActive()
+                && !Permissions.hasPermission(player, "mktessentials.maintenance.bypass", 2)) {
+            player.connection.disconnect(MessageUtils.format(Settings.getMaintenanceKick()));
+            return;
+        }
+
         // IP ban check
         String ip = IpBanManager.getPlayerIp(player);
         if (IpBanManager.isBanned(ip)) {
@@ -114,6 +121,8 @@ public class PlayerListener {
 
             // Restore persisted states from PlayerData
             PlayerData data = DataManager.getPlayerData(player.getUUID());
+            // Detect a brand-new player before startSession stamps firstJoinAt
+            boolean firstJoin = data.getFirstJoinAt() == 0;
             // Playtime session + last known IP (used by /whois, /playtime, /banip)
             data.startSession(System.currentTimeMillis(), IpBanManager.getPlayerIp(player));
             if (data.isGodMode()) {
@@ -140,12 +149,26 @@ public class PlayerListener {
             // Hide vanished players from this joining player's tab list
             AdminManager.hideVanishedFromJoiningPlayer(player);
 
-            // If this player is a phantom (shadowban), hide them from everyone's tab list
-            if (ShadowBanManager.isPhantom(player.getUUID())) {
-                hidePhantomFromTabList(player);
+            // Full-isolation shadowban: hide the phantom↔others both ways (tab + entities).
+            PhantomIsolation.onJoin(player);
+
+            // Keep the Discord bot's "N players online" status current.
+            pl.makoto.essentials.auth.DiscordBot.updatePlayerCount(player.getServer().getPlayerList().getPlayerCount());
+
+            // Native tab list header/footer for this player
+            TabListManager.refresh(player);
+
+            // Personal greeting (first join vs returning) — shown only to this player
+            GreetingManager.send(player, firstJoin);
+
+            // Notify about unread mail
+            if (Settings.isMailEnabled()) {
+                int mailCount = data.getMail().size();
+                if (mailCount > 0) {
+                    player.sendSystemMessage(MessageUtils.prefixed(
+                            "&eYou have &6" + mailCount + "&e unread mail message(s). Use &6/mail read&e."));
+                }
             }
-            // Hide phantom players from this joining player's tab list
-            hidePhantomPlayersFromJoiningPlayer(player);
 
             if (Settings.isJoinQuitEnabled()) {
                 if (AdminManager.isVanished(player.getUUID())) return;
@@ -153,6 +176,7 @@ public class PlayerListener {
                 if (ShadowBanManager.isPhantom(player.getUUID())) return;
 
                 player.getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getJoinMessage()), false);
+                pl.makoto.essentials.integration.DiscordRelay.join(player);
             }
         }));
     }
@@ -175,6 +199,10 @@ public class PlayerListener {
         pl.makoto.essentials.commands.ReportCommands.cleanupPlayer(player.getUUID());
         AdminManager.cleanupOnDisconnect(player.getUUID());
         ShadowBanManager.removePhantom(player.getUUID());
+        ChatModerationManager.cleanupPlayer(player.getUUID());
+        PollManager.cleanupPlayer(player.getUUID());
+        BossbarManager.remove(player);
+        NametagManager.remove(player);
 
         if (Settings.isJoinQuitEnabled()) {
             if (AdminManager.isVanished(player.getUUID())) {
@@ -188,9 +216,15 @@ public class PlayerListener {
             }
 
             event.getEntity().getServer().getPlayerList().broadcastSystemMessage(MessageUtils.format(player, Settings.getQuitMessage()), false);
+            pl.makoto.essentials.integration.DiscordRelay.quit(player);
         }
 
         DataManager.evictPlayer(player.getUUID());
+
+        // Update the Discord bot status; deferred a tick so the leaving player is already removed.
+        var srv = event.getEntity().getServer();
+        if (srv != null) srv.execute(() ->
+                pl.makoto.essentials.auth.DiscordBot.updatePlayerCount(srv.getPlayerList().getPlayerCount()));
     }
 
     public static String getFullDisplayNameForTab(ServerPlayer player) {
@@ -210,7 +244,9 @@ public class PlayerListener {
         boolean includeLuckPerms = forceIncludeLuckPerms && READY_PLAYERS.contains(player.getUUID());
         
         PlayerData data = DataManager.getPlayerData(player.getUUID());
-        String name = data.getNickname() != null && !data.getNickname().isBlank() ? data.getNickname() : player.getScoreboardName();
+        String name = data.getNickname() != null && !data.getNickname().isBlank()
+                ? LegacyCodeConverter.fromMiniMessage(data.getNickname())
+                : player.getScoreboardName();
         String dot = "";
         if (data.isRecording()) dot = "&c\u25cf &r";
         else if (data.isStreaming()) dot = "&d\u25cf &r";
@@ -268,6 +304,30 @@ public class PlayerListener {
         // Cancel original message to remove <PlayerName> brackets
         event.setCanceled(true);
 
+        // Chat moderation (anti-flood, caps, swear). Staff with the bypass permission skip filters.
+        String moderatedText = event.getMessage().getString();
+        if (!Permissions.hasPermission(player, "mktessentials.chat.moderation.bypass", 2)) {
+            ChatModerationManager.Result mod = ChatModerationManager.process(player, moderatedText);
+            if (mod.blocked()) {
+                player.sendSystemMessage(MessageUtils.prefixed(mod.blockMessage()));
+                return;
+            }
+            moderatedText = mod.message();
+        }
+
+        // Local (range-based) chat: a message reaches only nearby players unless it starts with
+        // the global prefix. Prefixed messages are sent globally with the prefix stripped.
+        boolean localOnly = false;
+        if (Settings.isChatLocalEnabled()) {
+            String globalPrefix = Settings.getChatGlobalPrefix();
+            if (globalPrefix != null && !globalPrefix.isEmpty() && moderatedText.startsWith(globalPrefix)) {
+                moderatedText = moderatedText.substring(globalPrefix.length()).trim();
+            } else {
+                localOnly = true;
+            }
+        }
+        final boolean isLocal = localOnly;
+
         // Get per-group chat format (falls back to default if no group format defined)
         String group = LuckPermsHook.getPrimaryGroup(player);
         String chatFormat = Settings.getChatFormatForGroup(group);
@@ -275,38 +335,70 @@ public class PlayerListener {
         // Format the chat prefix (player name, rank, etc.) using placeholders
         Component prefix = MessageUtils.format(player, chatFormat.replace("{message}", ""));
 
-        // Build hover text with rank, ping, and UUID
-        MutableComponent hoverText = Component.empty();
+        // Build base hover text with rank, ping, and UUID (shared by all viewers)
+        MutableComponent baseHover = Component.empty();
         String rank = LuckPermsHook.getPrimaryGroup(player);
         if (rank != null) {
-            hoverText.append(MessageUtils.format("&7Rank: &f" + rank + "\n"));
+            baseHover.append(MessageUtils.format("&7Rank: &f" + rank + "\n"));
         }
-        hoverText.append(MessageUtils.format("&7Ping: &f" + player.connection.latency() + "ms\n"));
-        hoverText.append(MessageUtils.format("&7UUID: &f" + player.getUUID().toString()));
+        baseHover.append(MessageUtils.format("&7Ping: &f" + player.connection.latency() + "ms\n"));
+        baseHover.append(MessageUtils.format("&7UUID: &f" + player.getUUID().toString()));
 
-        // Attach HoverEvent to the prefix component
-        Component prefixWithHover = prefix.copy().withStyle(style ->
-            style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText))
-        );
+        // Real name is exposed only to staff with mktessentials.nick.see, and only when nicknamed
+        String senderNick = playerData.getNickname();
+        boolean senderNicked = senderNick != null && !senderNick.isBlank();
+        String realNameLine = "\n&7Real name: &f" + player.getScoreboardName();
 
-        // Format the player's message content with permission-based MiniMessage/legacy code filtering
-        String messageText = event.getMessage().getString();
-        Component formattedMessage = MessageUtils.formatWithPermissions(player, messageText);
+        // Format the player's message content with permission-based MiniMessage/legacy code
+        // filtering, plus @mention highlighting and collection of mentioned players.
+        ObjectManager.Result mention = ObjectManager.process(player, moderatedText);
+        Component formattedMessage = mention.message();
 
-        // Combine prefix (with hover) and formatted message
-        Component finalMsg = prefixWithHover.copy().append(formattedMessage);
+        // Per-player chat color (/chatcolor) as the base color of the message text
+        String chatColor = playerData.getChatColor();
+        if (Settings.isChatcolorEnabled() && chatColor != null && !chatColor.isBlank()) {
+            net.minecraft.ChatFormatting fmt = net.minecraft.ChatFormatting.getByName(chatColor);
+            if (fmt != null && fmt.isColor()) {
+                formattedMessage = Component.empty().withStyle(s -> s.withColor(fmt)).append(formattedMessage);
+            }
+        }
 
-        // Send to each player individually so /ignore can filter chat
+        // Send to each player individually so /ignore can filter chat and /nick.see can reveal the real name
         for (ServerPlayer viewer : player.getServer().getPlayerList().getPlayers()) {
+            // Full-isolation shadowban: a phantom neither sends to nor receives from others.
+            if (PhantomIsolation.hidden(player, viewer)) continue;
             if (!viewer.getUUID().equals(player.getUUID())
                     && DataManager.getPlayerData(viewer.getUUID()).isIgnoring(player.getUUID())) {
                 continue;
             }
-            viewer.sendSystemMessage(finalMsg);
+            // Local chat range filter (sender + nearby + staff with bypass always see it)
+            if (isLocal && !viewer.getUUID().equals(player.getUUID())
+                    && !Permissions.hasPermission(viewer, "mktessentials.chat.local.bypass", 2)
+                    && !isNearby(player, viewer)) {
+                continue;
+            }
+
+            MutableComponent hover = baseHover.copy();
+            if (senderNicked && Permissions.hasPermission(viewer, "mktessentials.nick.see", 2)) {
+                hover.append(MessageUtils.format(realNameLine));
+            }
+            Component prefixWithHover = prefix.copy().withStyle(style ->
+                style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hover))
+            );
+            viewer.sendSystemMessage(prefixWithHover.copy().append(formattedMessage));
         }
 
+        // Ping mentioned players (skip if they ignore the sender)
+        for (ServerPlayer target : mention.mentioned()) {
+            if (DataManager.getPlayerData(target.getUUID()).isIgnoring(player.getUUID())) continue;
+            MentionManager.playPing(target);
+        }
+
+        // Mirror global chat to Discord (local/range chat stays in-game).
+        if (!isLocal) pl.makoto.essentials.integration.DiscordRelay.mcChat(player, moderatedText);
+
         // Log to console manually since we cancelled the event
-        MKTEssentials.LOGGER.info("[Chat] " + finalMsg.getString());
+        MKTEssentials.LOGGER.info("[Chat] " + prefix.copy().append(formattedMessage).getString());
     }
 
     /**
@@ -331,19 +423,47 @@ public class PlayerListener {
     }
 
     public static void refreshNickname(ServerPlayer player) {
-        // Update TAB first. TAB caches forced tab-list display names, so the vanilla packet below
-        // must see the freshly refreshed TAB value instead of the previous one.
-        TABHook.refreshPlayer(player);
+        // Native above-head nametag (rank prefix/suffix via scoreboard teams)
+        NametagManager.refresh(player);
 
-        // Trigger TabList format update (Minecraft)
-        player.getServer().getPlayerList().broadcastAll(
-            new ClientboundPlayerInfoUpdatePacket(ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME, player)
-        );
+        // Re-send the player-info entry so BOTH the tab display name and the above-head profile name
+        // pick up the nickname (the entry is rewritten by PlayerInfoEntryMixin). A plain
+        // UPDATE_DISPLAY_NAME only refreshes the tab name, not the profile name used above the head,
+        // so we remove and re-add the entry.
+        var list = player.getServer().getPlayerList();
+        list.broadcastAll(new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(
+                java.util.List.of(player.getUUID())));
+        list.broadcastAll(new ClientboundPlayerInfoUpdatePacket(java.util.EnumSet.of(
+                ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER,
+                ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
+                ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LATENCY,
+                ClientboundPlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE,
+                ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME), java.util.List.of(player)));
+
+        // Re-spawn the entity for observers so the above-head name picks up the new profile
+        NicknameService.respawnEntity(player);
 
         // Handle Vanish Tab visibility via AdminManager
         if (AdminManager.isVanished(player.getUUID())) {
             AdminManager.hideFromTabList(player);
         }
+
+        // Re-hide phantom (shadowban) players: the ADD_PLAYER broadcast above re-exposes them in
+        // everyone's tab list, so a nick refresh would otherwise blow their cover.
+        if (ShadowBanManager.isPhantom(player.getUUID())) {
+            PhantomIsolation.hideFromOthersTab(player);
+        }
+    }
+
+    /**
+     * Whether the viewer should receive the sender's local chat: always requires the same dimension;
+     * in "range" mode also within the configured radius, in "world" mode the whole dimension.
+     */
+    private static boolean isNearby(ServerPlayer sender, ServerPlayer viewer) {
+        if (sender.level() != viewer.level()) return false;
+        if ("world".equalsIgnoreCase(Settings.getChatLocalMode())) return true;
+        double radius = Settings.getChatLocalRadius();
+        return sender.distanceToSqr(viewer) <= radius * radius;
     }
 
     private static String formatRemainingTime(long millis) {
@@ -361,36 +481,5 @@ public class PlayerListener {
         if (minutes > 0) sb.append(minutes).append("m ");
         if (seconds > 0 || sb.isEmpty()) sb.append(seconds).append("s");
         return sb.toString().trim();
-    }
-
-    /**
-     * Hides a phantom player from the tab list for all other players.
-     * The phantom player can still see everyone else.
-     */
-    private static void hidePhantomFromTabList(ServerPlayer phantomPlayer) {
-        net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removePacket =
-                new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(phantomPlayer.getUUID()));
-
-        for (ServerPlayer viewer : phantomPlayer.getServer().getPlayerList().getPlayers()) {
-            if (viewer.getUUID().equals(phantomPlayer.getUUID())) continue; // Don't hide from self
-            viewer.connection.send(removePacket);
-        }
-    }
-
-    /**
-     * Hides all currently phantom players from a joining player's tab list.
-     * (The phantom players themselves can see the joining player.)
-     */
-    private static void hidePhantomPlayersFromJoiningPlayer(ServerPlayer joiningPlayer) {
-        // Don't hide phantoms from themselves
-        if (ShadowBanManager.isPhantom(joiningPlayer.getUUID())) return;
-
-        for (ServerPlayer online : joiningPlayer.getServer().getPlayerList().getPlayers()) {
-            if (ShadowBanManager.isPhantom(online.getUUID()) && !online.getUUID().equals(joiningPlayer.getUUID())) {
-                net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removePacket =
-                        new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(online.getUUID()));
-                joiningPlayer.connection.send(removePacket);
-            }
-        }
     }
 }

@@ -111,8 +111,9 @@ final class DefaultTemplates {
               max-per-player: 10
 
             # ============================================
-            #  Authentication & Discord Link
+            #  Authentication (login / register)
             # ============================================
+            # Discord link and web-sync now live in integration.yml.
             auth:
               # Mode: "full", "auth-only", "link-only", "optional", "disabled"
               mode: "disabled"
@@ -124,28 +125,6 @@ final class DefaultTemplates {
               login-timeout-seconds: 60
               # Minutes of invulnerability for first-time players (0 = disabled)
               newbie-protection-minutes: 30
-              # Optional: mirror link/unlink events to an external backend (e.g. a website
-              # panel / shared database). Leave disabled unless you run such a backend.
-              web-sync:
-                enabled: false
-                # Endpoint receiving POST {action,minecraftUuid,minecraftUsername,discordId,discordUsername,discordAvatar}
-                url: ""
-                # Sent as "Authorization: Bearer <secret>"
-                secret: ""
-                # On server start, push all currently linked accounts to the endpoint
-                # (idempotent upsert) so the backend stays in sync even if it was offline earlier.
-                backfill-on-start: false
-                # Inbound HTTP channel (reverse of the sync above): lets the backend tell
-                # the mod to unlink an account in-game (e.g. a "Disconnect" button in a web
-                # panel). Without it, clearing the account on the backend leaves it linked
-                # on the server and gets overwritten by the next backfill.
-                api:
-                  enabled: false
-                  # Bind address — keep 127.0.0.1 if the backend runs on the same machine.
-                  bind: "127.0.0.1"
-                  port: 8766
-                  # Bearer secret the backend must send. Leave empty to reuse web-sync.secret.
-                  secret: ""
 
             # ============================================
             #  Shadowban
@@ -155,26 +134,16 @@ final class DefaultTemplates {
               # timeout: Shows "Connection timed out" on join
               # full: Shows "Server is full!" on join
               # internal-error: Kicks after 2-3 seconds with fake internal error
-              # phantom: Player joins but is invisible to others, chat hidden
+              # phantom: Full isolation. The player joins into an empty world — they see NO other
+              #          players (neither in-world entities nor the tab list) and no one sees them.
+              #          Their chat is echoed only back to themselves; they receive no one else's
+              #          chat; no join/quit spam; and with a voice-chat mod + mute-sync hook on,
+              #          their microphone is silently dropped too. Mobs/items stay visible.
               shadowban-method: "timeout"
               # Active warns (/warn) that trigger an automatic tempban (0 = no escalation)
               max-warns: 3
               # Tempban duration applied when the warn limit is reached (e.g. 1d, 12h, 30m)
               warn-ban-duration: "1d"
-
-            discord:
-              # Enable the embedded Discord bot
-              enabled: false
-              # Discord bot token (from Discord Developer Portal)
-              bot-token: ""
-              # Guild (server) ID where the bot operates
-              guild-id: ""
-              # Name of the slash command for linking (language-dependent)
-              link-command-name: "link"
-              # Role ID to assign when a player links their account (empty = disabled)
-              linked-role-id: ""
-              # Show online player count in bot status
-              show-player-count: true
 
             # ============================================
             #  Item Management
@@ -208,6 +177,484 @@ final class DefaultTemplates {
                 - "minecraft:elytra"
                 - "minecraft:shulker_box"
                 - "minecraft:totem_of_undying"
+            """;
+
+    static final String CHAT_YML = """
+            # ============================================
+            #  MKT Essentials - Chat, Social & Presentation
+            # ============================================
+            # Everything related to chat, social features and how the server presents itself:
+            # nicknames, mentions, moderation, links, tab list, nametags, boss bar, MOTD, roleplay,
+            # mail and maintenance. Gameplay settings live in settings.yml.
+            # Changes require /mkt reload or server restart.
+
+            # ============================================
+            #  Nicknames (/nick)
+            # ============================================
+            nickname:
+              # Allow players to change their nickname with /nick
+              enabled: true
+              # Minimum / maximum VISIBLE length (color & format codes are not counted)
+              min-length: 1
+              max-length: 16
+              # Optional regex the VISIBLE nickname must match (colors stripped).
+              # Empty = no restriction. Example (letters, digits, underscore, 3-16 chars):
+              #   allowed-pattern: "^[A-Za-z0-9_]{3,16}$"
+              allowed-pattern: ""
+
+            # ============================================
+            #  Chat Mentions (@name)
+            # ============================================
+            # Ping other players in chat by typing @<their name or nickname>.
+            # The mention is highlighted and the mentioned player hears a sound.
+            mention:
+              enabled: true
+              # Color for the highlighted @mention: a named color (aqua, gold, ...) or hex (#55FFFF)
+              color: "aqua"
+              # Sound played to the mentioned player (namespaced sound id, empty = no sound)
+              sound: "minecraft:block.note_block.pling"
+              # Allow players to mention (ping) themselves
+              self: false
+
+            # ============================================
+            #  Chat Replacements (links / spoilers)
+            # ============================================
+            replacement:
+              enabled: true
+              # Turn http(s) links into clickable links
+              url: true
+              # ||text|| becomes an obfuscated spoiler
+              spoiler: true
+              # Color for clickable links
+              url-color: "blue"
+
+            # ============================================
+            #  Inline chat objects (no resource pack)
+            # ============================================
+            # [item] inserts the item you're holding (with its tooltip on hover);
+            # <head> inserts your player head. Text between them is formatted normally.
+            objects:
+              enabled: true
+
+            # ============================================
+            #  Markdown-style chat formatting
+            # ============================================
+            # *italic*  **bold**  __underline__  ~~strikethrough~~  ??matrix?? (obfuscated)
+            markdown:
+              enabled: true
+
+            # ============================================
+            #  Per-player Chat Color (/chatcolor)
+            # ============================================
+            chatcolor:
+              enabled: true
+
+            # ============================================
+            #  Color codes on items / books / signs
+            # ============================================
+            # Allow & color/format codes (permission-filtered) when renaming items in an anvil,
+            # writing books, and editing signs.
+            text-colors:
+              anvil: true
+              book: true
+              sign: true
+
+            # ============================================
+            #  Stream announce (/stream <url>)
+            # ============================================
+            stream:
+              enabled: true
+              announce-format: "&d&l⭐ &e%mktessentials:name% &7is now streaming! &b{url}"
+
+            # ============================================
+            #  Anonymous chat (/anon <message>)
+            # ============================================
+            anon:
+              enabled: true
+              format: "&8[&7Anon&8] &f{message}"
+
+            # ============================================
+            #  Question highlight
+            # ============================================
+            # Colors the base text of a message that ends with '?'.
+            questionanswer:
+              enabled: false
+              color: "yellow"
+
+            # ============================================
+            #  Local (range-based) Chat
+            # ============================================
+            # When enabled, chat is scoped so it doesn't reach the whole server.
+            # mode "range" = only players within "radius" blocks (same dimension);
+            # mode "world" = everyone in the same dimension (per-world chat).
+            # Start a message with the global prefix to send it to everyone.
+            # Tip: put %mktessentials:world% in the chat format (messages.yml) to show the world.
+            chat-local:
+              enabled: false
+              mode: "range"
+              radius: 100
+              global-prefix: "!"
+
+            # ============================================
+            #  Emoji / Symbol Shortcuts
+            # ============================================
+            # Typing the code inserts the symbol in chat.
+            emojis:
+              ":heart:": "❤"
+              ":star:": "★"
+              ":check:": "✔"
+              ":cross:": "✖"
+              ":arrow:": "➤"
+              ":skull:": "☠"
+              ":note:": "♪"
+              ":sun:": "☀"
+
+            # ============================================
+            #  Named Animations (<animation:name>)
+            # ============================================
+            # Reusable animations you can embed anywhere with <animation:name> — in the tab
+            # header/footer, boss bar, MOTD, chat/greeting formats, etc. The frame advances every
+            # "interval" ticks (20 = 1 second). Unknown names render as empty.
+            animations:
+              loading:
+                interval: 10
+                frames:
+                  - "&7Loading&8."
+                  - "&7Loading&8.."
+                  - "&7Loading&8..."
+              title:
+                interval: 8
+                frames:
+                  - "&c&lMKT"
+                  - "&6&lMKT"
+                  - "&e&lMKT"
+                  - "&a&lMKT"
+                  - "&b&lMKT"
+                  - "&d&lMKT"
+
+            # ============================================
+            #  Chat Moderation (anti-spam / caps / swear)
+            # ============================================
+            # Players with mktessentials.chat.moderation.bypass (default OP) skip all filters.
+            chat-moderation:
+              enabled: true
+              # Excessive CAPS filter
+              caps:
+                enabled: true
+                # Only check messages at least this many characters long
+                min-length: 8
+                # Block/fix messages whose letters are more than this percent uppercase
+                max-percent: 70
+                # "lowercase" = convert to lowercase, "block" = reject the message
+                mode: "lowercase"
+              # Anti-flood / anti-spam
+              flood:
+                enabled: true
+                # Minimum seconds between two messages from the same player
+                cooldown-seconds: 1.5
+                # Block sending the exact same message twice in a row
+                block-duplicate: true
+                # Collapse runs of the same character longer than this (0 = disabled), e.g. "aaaaaa" -> "aaaa"
+                max-repeated-chars: 4
+              # Swear/word filter (fill in your own word list; empty = disabled)
+              swear:
+                enabled: false
+                # "censor" = replace with the censor char, "block" = reject the message
+                mode: "censor"
+                censor-char: "*"
+                words: []
+              # New-player restrictions (based on total playtime)
+              newbie:
+                enabled: false
+                min-playtime-minutes: 10
+                # Block links from players below the playtime threshold
+                block-links: true
+
+            # ============================================
+            #  Tab List (header / footer)
+            # ============================================
+            # Native tab list — no external TAB mod required.
+            # Player names in the list are formatted by the chat name settings; here you set the
+            # header/footer. Placeholders (%mktessentials:name% etc.) and {online}/{max} are supported.
+            tablist:
+              enabled: true
+              # How often (in ticks, 20 = 1s) the header/footer is refreshed
+              update-interval: 40
+              header:
+                - "&6&lMKT Server"
+                - ""
+              footer:
+                - ""
+                - "&7Players online: &f{online}&7/&f{max}"
+              # Show each player's ping as a number next to their name in the tab list
+              ping-number:
+                enabled: false
+                update-interval: 40
+              # Animated header/footer: cycle through frames (each frame is a list of lines).
+              # When enabled, these replace the static header/footer above.
+              animation:
+                enabled: false
+                # Ticks between frames (20 = 1 second)
+                interval: 20
+                header:
+                  - ["&6&lMKT Server", "&7Welcome!"]
+                  - ["&6&lMKT Server", "&aHave fun!"]
+                footer:
+                  - ["", "&7discord.gg/example"]
+                  - ["", "&7Players online: &f{online}&7/&f{max}"]
+
+            # ============================================
+            #  Nametags (above the head)
+            # ============================================
+            # Native rank prefix/suffix above players' heads via scoreboard teams
+            # (uses LuckPerms prefix/suffix). No external TAB mod required.
+            nametag:
+              enabled: true
+
+            # ============================================
+            #  Below-name number (under the head, in the world)
+            # ============================================
+            belowname:
+              enabled: false
+              # "health" or "ping"
+              type: "health"
+              # Text shown after the number (e.g. a heart)
+              suffix: "&c❤"
+              update-interval: 40
+
+            # ============================================
+            #  Sidebar (scoreboard side panel)
+            # ============================================
+            # Server-wide panel. {online}/{max} supported; per-player placeholders are NOT
+            # (one objective is shared by everyone).
+            sidebar:
+              enabled: false
+              update-interval: 40
+              title: "&6&lMKT SERVER"
+              lines:
+                - "&7Welcome!"
+                - "&7Online: &f{online}&7/&f{max}"
+
+            # ============================================
+            #  Boss Bar
+            # ============================================
+            # A persistent boss bar shown to every player. Supports placeholders.
+            bossbar:
+              enabled: false
+              text: "&6Welcome to the server, %mktessentials:name%!"
+              # Colors: pink, blue, red, green, yellow, purple, white
+              color: "purple"
+              # Overlay: progress, notched_6, notched_10, notched_12, notched_20
+              overlay: "progress"
+              update-interval: 40
+
+            # ============================================
+            #  Server Brand (F3 debug screen)
+            # ============================================
+            # Overrides the "Server Brand" line in the F3 screen. Multiple texts rotate.
+            brand:
+              enabled: false
+              # Ticks between rotations (only when more than one text)
+              update-interval: 100
+              texts:
+                - "&bMKT &fEssentials"
+
+            # ============================================
+            #  Server List MOTD
+            # ============================================
+            # Overrides the message shown in the multiplayer server list.
+            # Disabled by default so it doesn't replace your server.properties MOTD unexpectedly.
+            # Supports & color codes and MiniMessage. Up to 2 lines are shown.
+            motd:
+              enabled: false
+              lines:
+                - "&6MKT Server &8» &7Welcome!"
+                - "&aRunning MKT Essentials"
+              # Custom server-list icon: file name of a 64x64 PNG placed in
+              # config/mktessentials/icon/ (empty = keep vanilla server-icon.png). e.g. "server.png"
+              icon: ""
+
+            # ============================================
+            #  Right-click Player Info
+            # ============================================
+            # Right-clicking another player shows their info to you.
+            rightclick:
+              enabled: true
+              # Require the player to be sneaking (shift) to trigger it
+              require-sneak: true
+              # Lines shown to the clicker. Placeholders resolve for the CLICKED player.
+              format:
+                - "&8&m                    "
+                - " &6%mktessentials:full_name%"
+                - " &7Real name: &f%mktessentials:real_name%"
+                - "&8&m                    "
+
+            # ============================================
+            #  Roleplay (/me, /do, /try)
+            # ============================================
+            # {message} = the text the player typed, %mktessentials:name% = their (nick) name.
+            roleplay:
+              enabled: true
+              me-format: "&d* %mktessentials:name% &f{message}"
+              do-format: "&d* &f{message}"
+              # {result} is replaced by try-success or try-fail (50/50)
+              try-format: "&d* %mktessentials:name% &7tries to &f{message}&7 and {result}."
+              try-success: "&asucceeds"
+              try-fail: "&cfails"
+
+            # ============================================
+            #  Mail (offline messages)
+            # ============================================
+            mail:
+              enabled: true
+              # Maximum stored messages per player (oldest dropped past this)
+              max-per-player: 30
+
+            # ============================================
+            #  Maintenance Mode (/maintenance on|off)
+            # ============================================
+            # When active, only players with mktessentials.maintenance.bypass can join.
+            maintenance:
+              # Start the server already in maintenance mode
+              enabled-on-start: false
+              # Kick/deny message (supports \\n for new lines and & colors)
+              kick-message: "&cThe server is under maintenance.\\n&7Please check back later."
+              # Shown automatically in the server list while maintenance is active (up to 2 lines)
+              motd:
+                - "&c&lUNDER MAINTENANCE"
+                - "&7We'll be back soon!"
+              # Icon shown automatically during maintenance: file name of a 64x64 PNG in
+              # config/mktessentials/icon/ (empty = keep the normal icon)
+              icon: ""
+
+            # ============================================
+            #  Greeting (personal welcome for the joining player)
+            # ============================================
+            # Shown only to the joining player. Lines containing the [#][#][#][#][#][#][#][#] marker
+            # are replaced with the player's skin face (colored pixels). Placeholders supported.
+            greeting:
+              enabled: true
+              # "chat", "actionbar", or "title" (skin face only works in "chat")
+              type: "chat"
+              # Render the player's skin face in place of the [#][#][#][#][#][#][#][#] markers
+              skin-face: true
+              # Avatar API returning the small face image. <name> = account name (works offline too),
+              # <uuid> = the player's UUID. Using <name> is recommended for offline-mode servers.
+              avatar-url: "https://mc-heads.net/avatar/<name>/8.png"
+              first-join:
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]  &6&lHello,"
+                - "[#][#][#][#][#][#][#][#]  &e%mktessentials:name%"
+                - "[#][#][#][#][#][#][#][#]  &7Welcome to the server!"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+              returning:
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]  &6&lWelcome back,"
+                - "[#][#][#][#][#][#][#][#]  &e%mktessentials:name%"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+                - "[#][#][#][#][#][#][#][#]"
+              # Title timing (ticks), only used when type: title
+              title-fade-in: 10
+              title-stay: 60
+              title-fade-out: 20
+            """;
+
+    static final String INTEGRATION_YML = """
+            # ============================================
+            #  MKT Essentials - Integrations
+            # ============================================
+            # Settings for integrations with other mods / services.
+            #
+            # Auto-detected (no configuration needed): LuckPerms (permissions & chat prefixes),
+            # Text Placeholder API (exposes %mktessentials:*% to other mods) and Curios (/invsee
+            # curio slots). They are used automatically when installed and safely ignored otherwise.
+
+            # ============================================
+            #  Discord bot (account linking)
+            # ============================================
+            discord:
+              # Enable the embedded Discord bot
+              enabled: false
+              # Discord bot token (from the Discord Developer Portal)
+              bot-token: ""
+              # Guild (server) ID where the bot operates
+              guild-id: ""
+              # Name of the slash command for linking (language-dependent)
+              link-command-name: "link"
+              # Role ID to assign when a player links their account (empty = disabled)
+              linked-role-id: ""
+              # Show the online player count in the bot status
+              show-player-count: true
+
+              # 2-way chat bridge between a Discord channel and in-game chat (reuses the bot above).
+              # Requires the bot's "MESSAGE CONTENT INTENT" enabled in the Discord Developer Portal.
+              relay:
+                enabled: false
+                # The Discord channel ID to bridge (right-click channel → Copy ID; needs Developer Mode)
+                channel-id: ""
+                # Optional: post in-game messages through this webhook so they show the player's name and
+                # avatar. Empty = the bot posts them as plain text. Create one in the channel settings.
+                webhook-url: ""
+                # <player>/<message> for MC→Discord; Discord markdown allowed
+                format-to-discord: "**<player>**: <message>"
+                # <author>/<message> for Discord→MC; & colour codes allowed (user text is not styled)
+                format-from-discord: "&9[Discord] &b<author>&7: &f<message>"
+                # Mirror join/leave to Discord
+                announce-join-quit: true
+                join-to-discord: "**<player>** joined the server"
+                quit-to-discord: "**<player>** left the server"
+
+            # ============================================
+            #  Web sync (external backend / website panel)
+            # ============================================
+            # Mirror link/unlink events to an external backend (website panel / shared database).
+            # Leave disabled unless you run such a backend.
+            web-sync:
+              enabled: false
+              # Endpoint receiving POST {action,minecraftUuid,minecraftUsername,discordId,discordUsername,discordAvatar}
+              url: ""
+              # Sent as "Authorization: Bearer <secret>"
+              secret: ""
+              # On server start, push all currently linked accounts (idempotent upsert)
+              backfill-on-start: false
+              # Inbound HTTP channel: lets the backend tell the mod to unlink an account in-game
+              api:
+                enabled: false
+                # Bind address — keep 127.0.0.1 if the backend runs on the same machine
+                bind: "127.0.0.1"
+                port: 8766
+                # Bearer secret the backend must send. Empty = reuse web-sync.secret.
+                secret: ""
+
+            # ============================================
+            #  Optional mod hooks (auto-detected)
+            # ============================================
+            # These hooks only activate when the matching mod is installed; they are safely
+            # ignored otherwise. Each toggle lets you turn the hook off even when the mod is present.
+            mods:
+              # TAB — when installed, let TAB manage the player list & nametags
+              # (MKT's native tablist/nametag/ping back off to avoid a double-render conflict).
+              tab:
+                enabled: true
+              # MiniMOTD — when installed, let it handle the server-list MOTD
+              # (MKT's own MOTD override backs off).
+              minimotd:
+                enabled: true
+              # SkinsRestorer — use a player's SkinsRestorer skin for the greeting face/avatar.
+              skinsrestorer:
+                enabled: true
+              # PlasmoVoice — a player muted in MKT is also muted in voice chat.
+              plasmovoice:
+                enabled: true
+              # Simple Voice Chat — a player muted in MKT is also muted in voice chat.
+              simplevoicechat:
+                enabled: true
             """;
 
     static final String COMMANDS_YML = """

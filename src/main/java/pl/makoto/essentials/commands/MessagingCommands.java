@@ -2,15 +2,18 @@ package pl.makoto.essentials.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.MessageArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.level.ServerPlayer;
 import pl.makoto.essentials.util.Permissions;
 import pl.makoto.essentials.util.MessageUtils;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -22,16 +25,25 @@ public class MessagingCommands {
     private static final Set<UUID> socialSpy = new HashSet<>();
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        var msgCmd = Commands.literal("msg")
-                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.msg", 0))
-                .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("message", StringArgumentType.greedyString())
-                                .executes(context -> msg(context.getSource(), EntityArgument.getPlayer(context, "player"), StringArgumentType.getString(context, "message")))));
+        // Vanilla already registers /msg (with /tell and /w redirecting to it). Brigadier
+        // MERGES same-named literals instead of replacing them, and when parsing it prefers
+        // the vanilla branch (registered first), so a separately-registered "msg" node would
+        // never run. Instead we mirror vanilla's exact node path (msg -> targets -> message)
+        // so the merge overwrites the leaf's executes with ours. /tell and /w keep redirecting
+        // to this same live node, so they get overridden too. Brigadier does not merge node
+        // requirements, so the permission check lives in the handler instead of via .requires().
+        dispatcher.register(Commands.literal("msg")
+                .then(Commands.argument("targets", EntityArgument.players())
+                        .then(Commands.argument("message", MessageArgument.message())
+                                .executes(ctx -> msg(ctx.getSource(),
+                                        EntityArgument.getPlayers(ctx, "targets"),
+                                        MessageArgument.getMessage(ctx, "message").getString())))));
 
-        dispatcher.register(msgCmd);
-        dispatcher.register(Commands.literal("m").requires(msgCmd.getRequirement()).redirect(msgCmd.build()));
-        dispatcher.register(Commands.literal("w").requires(msgCmd.getRequirement()).redirect(msgCmd.build()));
-        dispatcher.register(Commands.literal("tell").requires(msgCmd.getRequirement()).redirect(msgCmd.build()));
+        // /m alias → redirect to the live (merged) msg node, not our detached builder.
+        CommandNode<CommandSourceStack> msgNode = dispatcher.getRoot().getChild("msg");
+        if (msgNode != null) {
+            dispatcher.register(Commands.literal("m").redirect(msgNode));
+        }
 
         var replyCmd = Commands.literal("reply")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.msg", 0))
@@ -54,18 +66,32 @@ public class MessagingCommands {
                 .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> ignore(context.getSource(), EntityArgument.getPlayer(context, "player")))));
 
+        dispatcher.register(Commands.literal("ignorelist")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.ignore", 0))
+                .executes(context -> ignorelist(context.getSource())));
+
         dispatcher.register(Commands.literal("broadcast")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.broadcast", 2))
                 .then(Commands.argument("message", StringArgumentType.greedyString())
                         .executes(context -> broadcast(context.getSource(), StringArgumentType.getString(context, "message")))));
     }
 
-    private static int msg(CommandSourceStack source, ServerPlayer target, String message) {
+    private static int msg(CommandSourceStack source, Collection<ServerPlayer> targets, String message) {
         ServerPlayer sender = source.getPlayer();
         if (sender == null) return 0;
 
-        sendMessage(sender, target, message);
-        return 1;
+        // The merged vanilla node carries no permission requirement, so gate it here.
+        if (!Permissions.hasPermission(sender, "mktessentials.command.msg", 0)) {
+            source.sendFailure(MessageUtils.prefixed("&cYou don't have permission to use this command."));
+            return 0;
+        }
+
+        int sent = 0;
+        for (ServerPlayer target : targets) {
+            sendMessage(sender, target, message);
+            sent++;
+        }
+        return sent;
     }
 
     private static int reply(CommandSourceStack source, String message) {
@@ -178,6 +204,33 @@ public class MessagingCommands {
         source.sendSuccess(() -> MessageUtils.prefixed(nowIgnored
                 ? "&7You are now ignoring &6" + target.getScoreboardName() + "&7 (chat and private messages)."
                 : "&7You are no longer ignoring &6" + target.getScoreboardName() + "&7."), false);
+        return 1;
+    }
+
+    private static int ignorelist(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return 0;
+
+        Set<String> ids = pl.makoto.essentials.data.DataManager.getPlayerData(player.getUUID()).getIgnoredPlayerIds();
+        if (ids.isEmpty()) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&7You are not ignoring anyone."), false);
+            return 1;
+        }
+
+        source.sendSuccess(() -> MessageUtils.prefixed("&7You are ignoring (&e" + ids.size() + "&7):"), false);
+        for (String id : ids) {
+            String name;
+            try {
+                UUID uuid = UUID.fromString(id);
+                ServerPlayer online = source.getServer().getPlayerList().getPlayer(uuid);
+                name = online != null ? online.getScoreboardName()
+                        : source.getServer().getProfileCache().get(uuid).map(com.mojang.authlib.GameProfile::getName).orElse(id);
+            } catch (IllegalArgumentException e) {
+                name = id;
+            }
+            final String display = name;
+            source.sendSuccess(() -> MessageUtils.format("&8- &f" + display), false);
+        }
         return 1;
     }
 

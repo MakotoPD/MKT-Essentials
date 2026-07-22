@@ -196,6 +196,12 @@ public class AdminCommands {
         int count = 0;
         for (ServerPlayer target : sender.getServer().getPlayerList().getPlayers()) {
             if (target.getUUID().equals(sender.getUUID())) continue;
+            // Save the target's pre-teleport spot so they can /back after being summoned,
+            // matching the behaviour of /tp, /tphere and the other teleport commands.
+            DataManager.getPlayerData(target.getUUID()).pushBackLocation(new PlayerData.SavedLocation(
+                    target.level().dimension().location().toString(),
+                    target.position(), target.getYRot(), target.getXRot()
+            ));
             target.teleportTo(
                     (ServerLevel) sender.level(),
                     sender.getX(), sender.getY(), sender.getZ(),

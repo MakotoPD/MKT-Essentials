@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -16,12 +17,14 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 import pl.makoto.essentials.config.I18n;
 import pl.makoto.essentials.data.DataManager;
 import pl.makoto.essentials.data.PlayerData;
+import pl.makoto.essentials.util.CommandUtils;
 import pl.makoto.essentials.util.MessageUtils;
 import pl.makoto.essentials.util.Permissions;
 
@@ -48,11 +51,39 @@ public class ShortcutCommands {
                                 ctx.getSource().getPlayerOrException(),
                                 gamemodeFromInt(IntegerArgumentType.getInteger(ctx, "mode"))))));
 
-        // /tp <player> — teleport to player
+        // /tp — full teleport, mirroring vanilla /teleport (selectors @p @a @r @s + names,
+        // coordinates with ~ / ^, and the player→player / player→coords forms):
+        //   /tp <destination>            teleport yourself to a player/entity
+        //   /tp <x y z>                  teleport yourself to coordinates
+        //   /tp <targets> <destination>  teleport target(s) to a player/entity
+        //   /tp <targets> <x y z>        teleport target(s) to coordinates
+        // Vanilla registers /tp as a redirect to /teleport; Brigadier follows that redirect before
+        // our children are tried, so we drop the vanilla node first. /teleport is left intact.
+        CommandUtils.removeRootCommand(dispatcher, "tp");
         dispatcher.register(Commands.literal("tp")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.tp", 2))
-                .then(Commands.argument("target", EntityArgument.player())
-                        .executes(ctx -> tpTo(ctx.getSource(), EntityArgument.getPlayer(ctx, "target")))));
+                // /tp <x y z> — yourself to coordinates
+                .then(Commands.argument("location", Vec3Argument.vec3())
+                        .executes(ctx -> tpToPos(ctx.getSource(),
+                                java.util.List.of(ctx.getSource().getPlayerOrException()),
+                                Vec3Argument.getVec3(ctx, "location"))))
+                // /tp <destination> — yourself to a player/entity
+                .then(Commands.argument("destination", EntityArgument.entity())
+                        .executes(ctx -> tpToEntity(ctx.getSource(),
+                                java.util.List.of(ctx.getSource().getPlayerOrException()),
+                                EntityArgument.getEntity(ctx, "destination"))))
+                // /tp <targets> ...
+                .then(Commands.argument("targets", EntityArgument.players())
+                        // /tp <targets> <x y z>
+                        .then(Commands.argument("location", Vec3Argument.vec3())
+                                .executes(ctx -> tpToPos(ctx.getSource(),
+                                        EntityArgument.getPlayers(ctx, "targets"),
+                                        Vec3Argument.getVec3(ctx, "location"))))
+                        // /tp <targets> <destination>
+                        .then(Commands.argument("destination", EntityArgument.entity())
+                                .executes(ctx -> tpToEntity(ctx.getSource(),
+                                        EntityArgument.getPlayers(ctx, "targets"),
+                                        EntityArgument.getEntity(ctx, "destination"))))));
 
         // /tphere <player> — teleport player to you
         dispatcher.register(Commands.literal("tphere")
@@ -161,24 +192,50 @@ public class ShortcutCommands {
 
     // ─── Teleport ────────────────────────────────────────────────────────────────
 
-    private static int tpTo(CommandSourceStack source, ServerPlayer target) {
-        ServerPlayer player = source.getPlayer();
-        if (player == null || target == null) return 0;
+    /** Teleports the target player(s) to a destination entity (keeps /back + works cross-dimension). */
+    private static int tpToEntity(CommandSourceStack source, java.util.Collection<ServerPlayer> targets, Entity destination) {
+        ServerLevel level = (ServerLevel) destination.level();
+        for (ServerPlayer p : targets) {
+            saveBack(p);
+            p.teleportTo(level, destination.getX(), destination.getY(), destination.getZ(),
+                    destination.getYRot(), destination.getXRot());
+        }
 
-        // Save back location
-        PlayerData data = DataManager.getPlayerData(player.getUUID());
-        data.pushBackLocation(new PlayerData.SavedLocation(
-                player.level().dimension().location().toString(),
-                player.position(), player.getYRot(), player.getXRot()
-        ));
+        String destName = destination.getName().getString();
+        if (isSelf(source, targets)) {
+            source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("shortcuts.tp-to", "player", destName)), true);
+        } else {
+            int count = targets.size();
+            source.sendSuccess(() -> MessageUtils.prefixed("&7Teleported &6" + count + "&7 player(s) to &6" + destName + "&7."), true);
+        }
+        return targets.size();
+    }
 
-        player.teleportTo(
-                (ServerLevel) target.level(),
-                target.getX(), target.getY(), target.getZ(),
-                target.getYRot(), target.getXRot()
-        );
-        source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("shortcuts.tp-to", "player", target.getScoreboardName())), true);
-        return 1;
+    /** Teleports the target player(s) to coordinates (supports ~ and ^ via Vec3Argument). */
+    private static int tpToPos(CommandSourceStack source, java.util.Collection<ServerPlayer> targets, Vec3 pos) {
+        for (ServerPlayer p : targets) {
+            saveBack(p);
+            p.teleportTo((ServerLevel) p.level(), pos.x, pos.y, pos.z, p.getYRot(), p.getXRot());
+        }
+
+        String coords = String.format(java.util.Locale.ROOT, "%.1f, %.1f, %.1f", pos.x, pos.y, pos.z);
+        if (isSelf(source, targets)) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&7Teleported to &6" + coords + "&7."), true);
+        } else {
+            int count = targets.size();
+            source.sendSuccess(() -> MessageUtils.prefixed("&7Teleported &6" + count + "&7 player(s) to &6" + coords + "&7."), true);
+        }
+        return targets.size();
+    }
+
+    private static boolean isSelf(CommandSourceStack source, java.util.Collection<ServerPlayer> targets) {
+        return targets.size() == 1 && source.getPlayer() != null
+                && targets.iterator().next().getUUID().equals(source.getPlayer().getUUID());
+    }
+
+    private static void saveBack(ServerPlayer p) {
+        DataManager.getPlayerData(p.getUUID()).pushBackLocation(new PlayerData.SavedLocation(
+                p.level().dimension().location().toString(), p.position(), p.getYRot(), p.getXRot()));
     }
 
     private static int tpHere(CommandSourceStack source, ServerPlayer target) {

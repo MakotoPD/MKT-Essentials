@@ -37,6 +37,13 @@ public final class AuthManager {
 
     public static void init(MinecraftServer srv) {
         server = srv;
+
+        // The Discord bot (and its chat relay) runs whenever discord.enabled — it doesn't depend on
+        // the auth system, so start it before the auth-disabled early return.
+        if (Settings.isDiscordEnabled()) {
+            DiscordBot.initAsync();
+        }
+
         if (Settings.getAuthMode() == AuthMode.DISABLED) {
             MKTEssentials.LOGGER.info("Auth system is disabled.");
             return;
@@ -45,10 +52,6 @@ public final class AuthManager {
         AccountDatabase.init();
         AccountDatabase.deleteExpiredSessions();
         MKTEssentials.LOGGER.info("Auth system initialized (mode: {}).", Settings.getAuthMode().name());
-
-        if (Settings.isDiscordEnabled()) {
-            DiscordBot.initAsync();
-        }
 
         // opcjonalny backfill linków do zewnętrznego backendu (panel www)
         if (Settings.isWebSyncEnabled() && Settings.isWebSyncBackfillOnStart()) {

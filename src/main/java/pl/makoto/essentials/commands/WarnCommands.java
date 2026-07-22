@@ -50,6 +50,10 @@ public class WarnCommands {
                         .executes(context -> warns(context.getSource(),
                                 StringArgumentType.getString(context, "player")))));
 
+        dispatcher.register(Commands.literal("warnlist")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.moderation.warn", 2))
+                .executes(context -> warnlist(context.getSource())));
+
         dispatcher.register(Commands.literal("history")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.moderation.history", 2))
                 .then(Commands.argument("player", StringArgumentType.word())
@@ -142,6 +146,31 @@ public class WarnCommands {
             source.sendSuccess(() -> MessageUtils.format(line), false);
         }
         return 1;
+    }
+
+    private static int warnlist(CommandSourceStack source) {
+        var counts = PunishmentManager.getActiveWarnCounts();
+        if (counts.isEmpty()) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&7No players have active warns."), false);
+            return 1;
+        }
+
+        int max = Settings.getMaxWarns();
+        source.sendSuccess(() -> MessageUtils.prefixed("&7Players with active warns (&e" + counts.size() + "&7):"), false);
+        for (var entry : counts.entrySet()) {
+            String name = resolveName(source, entry.getKey());
+            String suffix = max > 0 ? "/" + max : "";
+            source.sendSuccess(() -> MessageUtils.format("&8- &f" + name + " &7(&e" + entry.getValue() + suffix + "&7)"), false);
+        }
+        return 1;
+    }
+
+    private static String resolveName(CommandSourceStack source, UUID uuid) {
+        ServerPlayer online = source.getServer().getPlayerList().getPlayer(uuid);
+        if (online != null) return online.getScoreboardName();
+        return source.getServer().getProfileCache() != null
+                ? source.getServer().getProfileCache().get(uuid).map(com.mojang.authlib.GameProfile::getName).orElse(uuid.toString())
+                : uuid.toString();
     }
 
     private static int history(CommandSourceStack source, String playerName) {

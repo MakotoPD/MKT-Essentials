@@ -20,12 +20,24 @@ public class MessageUtils {
     }
 
     public static MutableComponent format(ServerPlayer player, String text) {
-        if (player == null) return format(text);
+        if (player == null) return format(AnimationManager.apply(text));
+        // 0. Resolve <animation:name> tags to the current frame (server-controlled).
+        text = AnimationManager.apply(text);
+        // 1. Resolve MKT's own placeholders internally — works without any external mod.
+        String resolved = MKTPlaceholders.resolve(player, normalizeLegacyPlaceholders(text));
+        // 2. Optionally resolve any remaining third-party placeholders via the Text Placeholder API.
+        resolved = tryExternalPlaceholders(player, resolved);
+        return format(resolved);
+    }
+
+    /** Resolves non-MKT placeholders via the optional Text Placeholder API; a no-op if it's absent. */
+    private static String tryExternalPlaceholders(ServerPlayer player, String text) {
+        if (text == null || text.indexOf('%') == -1) return text;
         try {
-            Component parsed = Placeholders.parseText(normalizeLegacyPlaceholders(text), ServerPlaceholderContext.of(player));
-            return format(parsed.getString());
+            Component parsed = Placeholders.parseText(text, ServerPlaceholderContext.of(player));
+            return parsed.getString();
         } catch (NoClassDefFoundError e) {
-            return format(stripPlaceholders(text, player.getScoreboardName()));
+            return text;
         }
     }
 
@@ -39,6 +51,19 @@ public class MessageUtils {
      * @return styled MutableComponent
      */
     public static MutableComponent formatWithPermissions(ServerPlayer player, String text) {
+        return formatWithPermissions(player, text, null);
+    }
+
+    /**
+     * Same as {@link #formatWithPermissions(ServerPlayer, String)}, but applies an optional
+     * server-controlled transform to the string AFTER permission filtering and BEFORE parsing.
+     * This lets callers inject markup the player itself is not allowed to use (e.g. mention
+     * highlighting) without it being stripped by the permission filter.
+     *
+     * @param postFilter transform applied to the filtered MiniMessage string (nullable)
+     */
+    public static MutableComponent formatWithPermissions(ServerPlayer player, String text,
+                                                         java.util.function.UnaryOperator<String> postFilter) {
         if (text == null || text.isEmpty()) return Component.literal("");
 
         // Step 1: Convert legacy & codes to MiniMessage equivalents
@@ -47,10 +72,19 @@ public class MessageUtils {
         // Step 2: Filter tags by player permissions
         String filtered = PermissionFilter.filter(player, converted);
 
-        // Step 3: Enforce 256-character visible text limit
+        // Step 3: Optional server-controlled transform (e.g. mention highlighting)
+        if (postFilter != null) filtered = postFilter.apply(filtered);
+
+        // Step 3a: Interactive replacements (clickable links, spoilers, emoji) — server-controlled
+        filtered = ReplacementManager.apply(filtered);
+
+        // Step 3b: Resolve <animation:name> tags (server-controlled, after permission filtering)
+        filtered = AnimationManager.apply(filtered);
+
+        // Step 4: Enforce 256-character visible text limit
         filtered = enforceVisibleLimit(filtered);
 
-        // Step 4: Parse MiniMessage into a styled Component
+        // Step 5: Parse MiniMessage into a styled Component
         return MiniMessageParser.parse(filtered);
     }
 
@@ -62,8 +96,30 @@ public class MessageUtils {
      * @param text raw text input
      * @return styled MutableComponent
      */
+    /**
+     * Permission-filtered legacy section-code string (for contexts rendered from a plain string,
+     * e.g. an anvil item name). Disallowed color/format tags are stripped. Hex colors degrade.
+     */
+    public static String legacyColors(ServerPlayer player, String text) {
+        if (text == null || text.isEmpty()) return text == null ? "" : text;
+        String converted = LegacyCodeConverter.convert(text);
+        if (Settings.isMarkdownEnabled()) converted = ReplacementManager.markdown(converted);
+        String filtered = PermissionFilter.filter(player, converted);
+        return LegacyCodeConverter.fromMiniMessage(filtered).replace('&', '§');
+    }
+
+    /** Same as {@link #formatBypass(String)} but resolves MKT placeholders for the given player first. */
+    public static MutableComponent formatBypass(ServerPlayer player, String text) {
+        if (player == null) return formatBypass(text);
+        return formatBypass(MKTPlaceholders.resolve(player, normalizeLegacyPlaceholders(text)));
+    }
+
     public static MutableComponent formatBypass(String text) {
         if (text == null || text.isEmpty()) return Component.literal("");
+
+        // Step 0: Resolve <animation:name> tags + interactive replacements (links/spoiler/emoji)
+        text = AnimationManager.apply(text);
+        text = ReplacementManager.apply(text);
 
         // Step 1: Convert legacy & codes to MiniMessage equivalents
         String converted = LegacyCodeConverter.convert(text);
@@ -148,20 +204,6 @@ public class MessageUtils {
             }
         }
         return sb.toString();
-    }
-
-    private static String stripPlaceholders(String text, String playerName) {
-        return text
-                .replace("%mktessentials:full_name/safe%", playerName)
-                .replace("%mktessentials:name%", playerName)
-                .replace("%mktessentials:prefix%", "")
-                .replace("%mktessentials:suffix%", "")
-                .replace("%mktessentials:dot%", "")
-                .replace("{player}", playerName)
-                .replace("{name}", playerName)
-                .replace("{prefix}", "")
-                .replace("{suffix}", "")
-                .replace("{dot}", "");
     }
 
     private static String normalizeLegacyPlaceholders(String text) {

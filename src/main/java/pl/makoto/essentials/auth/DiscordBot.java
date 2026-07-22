@@ -34,10 +34,15 @@ public final class DiscordBot extends ListenerAdapter {
 
         Thread thread = new Thread(() -> {
             try {
-                jda = JDABuilder.createDefault(token)
+                JDABuilder builder = JDABuilder.createDefault(token)
                         .enableIntents(GatewayIntent.GUILD_MEMBERS)
-                        .addEventListeners(INSTANCE)
-                        .build();
+                        .addEventListeners(INSTANCE);
+                // Reading channel messages for the chat relay needs the privileged MESSAGE_CONTENT
+                // intent (also toggle it in the Discord Developer Portal).
+                if (Settings.isDiscordRelayEnabled()) {
+                    builder.enableIntents(GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT);
+                }
+                jda = builder.build();
                 jda.awaitReady();
                 ready = true;
                 MKTEssentials.LOGGER.info("Discord bot connected successfully.");
@@ -45,11 +50,17 @@ public final class DiscordBot extends ListenerAdapter {
                 // Register slash command on the configured guild
                 registerSlashCommand();
 
-                // Set initial status
+                // Set initial status to the real count (players may already be online).
                 if (Settings.isDiscordShowPlayerCount()) {
-                    updatePlayerCount(0);
+                    var srv = MKTEssentials.getServer();
+                    updatePlayerCount(srv != null ? srv.getPlayerList().getPlayerCount() : 0);
                 }
-            } catch (Exception e) {
+            } catch (NoClassDefFoundError e) {
+                // okhttp/okio (JDA's HTTP layer) need kotlin-stdlib, which we don't bundle.
+                MKTEssentials.LOGGER.error("Discord bot needs the KotlinForForge mod (provides kotlin-stdlib) — "
+                        + "install it to use Discord features. Missing: {}", e.getMessage());
+                ready = false;
+            } catch (Throwable e) {
                 MKTEssentials.LOGGER.error("Failed to start Discord bot", e);
                 ready = false;
             }
@@ -144,6 +155,34 @@ public final class DiscordBot extends ListenerAdapter {
         } catch (Exception e) {
             MKTEssentials.LOGGER.warn("Failed to update Discord bot status", e);
         }
+    }
+
+    // ─── Chat relay ────────────────────────────────────────────────────────────
+
+    /** Sends plain text to a channel (used by the relay when no webhook is configured). */
+    public static void sendToChannel(String channelId, String text) {
+        if (!isReady() || channelId == null || channelId.isBlank()) return;
+        try {
+            var channel = jda.getTextChannelById(channelId);
+            if (channel != null) {
+                channel.sendMessage(text)
+                        .setAllowedMentions(java.util.Collections.emptyList()) // no @everyone/role pings from MC
+                        .queue();
+            }
+        } catch (Exception e) {
+            MKTEssentials.LOGGER.warn("Discord relay send failed", e);
+        }
+    }
+
+    @Override
+    public void onMessageReceived(net.dv8tion.jda.api.events.message.MessageReceivedEvent event) {
+        if (!Settings.isDiscordRelayEnabled()) return;
+        if (event.getAuthor().isBot() || event.isWebhookMessage()) return;
+        if (!event.getChannel().getId().equals(Settings.getDiscordRelayChannelId())) return;
+
+        String content = event.getMessage().getContentDisplay();
+        if (content.isBlank()) return;
+        pl.makoto.essentials.integration.DiscordRelay.fromDiscord(event.getAuthor().getEffectiveName(), content);
     }
 
     // ─── Slash Command Handling ────────────────────────────────────────────────

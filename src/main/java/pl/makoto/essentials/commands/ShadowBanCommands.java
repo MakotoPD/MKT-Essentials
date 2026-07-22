@@ -95,21 +95,8 @@ public class ShadowBanCommands {
             }
             case "phantom" -> {
                 ShadowBanManager.addPhantom(player.getUUID());
-                hidePhantomFromTabList(player);
+                pl.makoto.essentials.util.PhantomIsolation.apply(player);
             }
-        }
-    }
-
-    /**
-     * Hides a phantom player from the tab list for all other players.
-     */
-    private static void hidePhantomFromTabList(ServerPlayer phantomPlayer) {
-        net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removePacket =
-                new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(phantomPlayer.getUUID()));
-
-        for (ServerPlayer viewer : phantomPlayer.getServer().getPlayerList().getPlayers()) {
-            if (viewer.getUUID().equals(phantomPlayer.getUUID())) continue; // Don't hide from self
-            viewer.connection.send(removePacket);
         }
     }
 
@@ -134,39 +121,16 @@ public class ShadowBanCommands {
             return 0;
         }
 
-        // If phantom and online, restore tab list visibility
-        if (ShadowBanManager.isPhantom(uuid)) {
-            ServerPlayer onlineTarget = source.getServer().getPlayerList().getPlayer(uuid);
-            if (onlineTarget != null) {
-                showPhantomInTabList(onlineTarget);
-            }
-        }
-
+        // Clear the flag FIRST, then restore visibility: PhantomIsolation.reveal() re-spawns entities
+        // via updatePlayer, which the isolation mixin cancels while the player is still a phantom.
+        boolean wasPhantom = ShadowBanManager.isPhantom(uuid);
+        ServerPlayer onlineTarget = source.getServer().getPlayerList().getPlayer(uuid);
         ShadowBanManager.unShadowBan(uuid);
+        if (wasPhantom && onlineTarget != null) {
+            pl.makoto.essentials.util.PhantomIsolation.reveal(onlineTarget);
+        }
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.unshadowbanned", "player", playerName)), true);
         return 1;
-    }
-
-    /**
-     * Restores a phantom player in the tab list for all other players.
-     */
-    private static void showPhantomInTabList(ServerPlayer phantomPlayer) {
-        net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket addPacket =
-                new net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket(
-                        net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER, phantomPlayer);
-        net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket listedPacket =
-                new net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket(
-                        java.util.EnumSet.of(
-                                net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_LISTED,
-                                net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME
-                        ),
-                        java.util.List.of(phantomPlayer));
-
-        for (ServerPlayer viewer : phantomPlayer.getServer().getPlayerList().getPlayers()) {
-            if (viewer.getUUID().equals(phantomPlayer.getUUID())) continue;
-            viewer.connection.send(addPacket);
-            viewer.connection.send(listedPacket);
-        }
     }
 
     private static int listShadowBans(CommandSourceStack source) {

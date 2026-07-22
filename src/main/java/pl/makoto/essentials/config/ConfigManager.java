@@ -12,6 +12,7 @@ import java.util.*;
 public final class ConfigManager {
     private static Path configDir;
     private static Path langDir;
+    private static Path iconDir;
     private static boolean initialized = false;
 
     public static boolean isInitialized() { return initialized; }
@@ -19,13 +20,21 @@ public final class ConfigManager {
     public static void init() {
         configDir = Path.of("config", "mktessentials");
         langDir = configDir.resolve("lang");
+        iconDir = configDir.resolve("icon");
         ensureDirectories();
         writeDefaultIfMissing(configDir.resolve("settings.yml"), DefaultTemplates.SETTINGS_YML);
+        writeDefaultIfMissing(configDir.resolve("chat.yml"), DefaultTemplates.CHAT_YML);
         writeDefaultIfMissing(configDir.resolve("commands.yml"), DefaultTemplates.COMMANDS_YML);
         writeDefaultIfMissing(configDir.resolve("messages.yml"), DefaultTemplates.MESSAGES_YML);
-        // dopisz brakujące klucze do istniejącego settings.yml (po aktualizacji moda),
+        // One-time migration: move existing Discord/web-sync config out of settings.yml into
+        // integration.yml before the default is written, so upgraders keep their bot token.
+        migrateToIntegration();
+        writeDefaultIfMissing(configDir.resolve("integration.yml"), DefaultTemplates.INTEGRATION_YML);
+        mergeMissingKeys(configDir.resolve("integration.yml"), DefaultTemplates.INTEGRATION_YML);
+        // dopisz brakujące klucze do istniejących settings.yml/chat.yml (po aktualizacji moda),
         // zachowując wartości i własne sekcje użytkownika
         mergeMissingKeys(configDir.resolve("settings.yml"), DefaultTemplates.SETTINGS_YML);
+        mergeMissingKeys(configDir.resolve("chat.yml"), DefaultTemplates.CHAT_YML);
         writeDefaultIfMissing(langDir.resolve("en_us.yml"), DefaultTemplates.LANG_EN_US);
         writeDefaultIfMissing(langDir.resolve("pl_pl.yml"), DefaultTemplates.LANG_PL_PL);
         loadAll();
@@ -44,13 +53,17 @@ public final class ConfigManager {
 
     private static void loadAll() {
         Map<String, Object> settings = parseYaml(configDir.resolve("settings.yml"));
+        Map<String, Object> chat = parseYaml(configDir.resolve("chat.yml"));
+        Map<String, Object> integration = parseYaml(configDir.resolve("integration.yml"));
         Map<String, Object> commands = parseYaml(configDir.resolve("commands.yml"));
         Map<String, Object> messages = parseYaml(configDir.resolve("messages.yml"));
 
         Settings.loadSettings(settings != null ? settings : Map.of());
+        Settings.loadChat(chat != null ? chat : Map.of());
         Settings.loadCommands(commands != null ? commands : Map.of());
         Settings.loadMessages(messages != null ? messages : Map.of());
         Settings.loadAuth(settings != null ? settings : Map.of());
+        Settings.loadIntegration(integration != null ? integration : Map.of());
 
         I18n.init(Settings.getLanguage());
     }
@@ -59,8 +72,61 @@ public final class ConfigManager {
         try {
             Files.createDirectories(configDir);
             Files.createDirectories(langDir);
+            Files.createDirectories(iconDir);
         } catch (IOException e) {
             MKTEssentials.LOGGER.error("Failed to create config directories", e);
+        }
+    }
+
+    /** Folder where server-list icons live: {@code config/mktessentials/icon/}. */
+    public static Path getIconDir() {
+        if (iconDir == null) iconDir = Path.of("config", "mktessentials", "icon");
+        return iconDir;
+    }
+
+    /**
+     * One-time migration: if integration.yml doesn't exist yet but the (legacy) settings.yml
+     * still carries a {@code discord} section or {@code auth.web-sync} subtree, seed integration.yml
+     * from those values so upgrading servers keep their configuration. Runs before the default
+     * integration.yml is written; a no-op on fresh installs and once integration.yml exists.
+     */
+    @SuppressWarnings("unchecked")
+    private static void migrateToIntegration() {
+        Path integrationFile = configDir.resolve("integration.yml");
+        if (Files.exists(integrationFile)) return;
+
+        Path settingsFile = configDir.resolve("settings.yml");
+        if (!Files.exists(settingsFile)) return;
+
+        Map<String, Object> settings = parseYaml(settingsFile);
+        if (settings == null) return;
+
+        Object discord = settings.get("discord");
+        Object webSync = settings.get("auth") instanceof Map<?, ?> authMap ? authMap.get("web-sync") : null;
+        if (discord == null && webSync == null) return; // nothing to migrate
+
+        Object template;
+        try {
+            template = new Yaml().load(DefaultTemplates.INTEGRATION_YML);
+        } catch (Exception e) {
+            return;
+        }
+        if (!(template instanceof Map<?, ?> templateMap)) return;
+
+        Map<String, Object> merged = new LinkedHashMap<>((Map<String, Object>) templateMap);
+        if (discord != null) merged.put("discord", discord);
+        if (webSync != null) merged.put("web-sync", webSync);
+
+        try {
+            DumperOptions opts = new DumperOptions();
+            opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            opts.setPrettyFlow(true);
+            opts.setIndent(2);
+            String out = new Yaml(opts).dump(merged);
+            Files.writeString(integrationFile, out, StandardCharsets.UTF_8);
+            MKTEssentials.LOGGER.info("Migrated Discord/web-sync settings from settings.yml to integration.yml.");
+        } catch (IOException e) {
+            MKTEssentials.LOGGER.error("Failed to write migrated integration.yml", e);
         }
     }
 
@@ -164,26 +230,29 @@ public final class ConfigManager {
             }
         }
         if (current == null) return defaultValue;
-        try {
-            if (defaultValue instanceof Integer && current instanceof Number n) {
-                return (T) Integer.valueOf(n.intValue());
-            }
-            if (defaultValue instanceof Double && current instanceof Number n) {
-                return (T) Double.valueOf(n.doubleValue());
-            }
-            if (defaultValue instanceof Boolean && current instanceof Boolean) {
-                return (T) current;
-            }
-            if (defaultValue instanceof String && current instanceof String) {
-                return (T) current;
-            }
-            if (defaultValue instanceof List<?> && current instanceof List<?>) {
-                return (T) current;
-            }
-            return (T) current;
-        } catch (ClassCastException e) {
-            return defaultValue;
+
+        // For scalar defaults, fall back to the default (with a warning) when the config value has
+        // the wrong type — a bad edit (e.g. a boolean written as a string) must never crash loading.
+        if (defaultValue instanceof Integer) {
+            return current instanceof Number n ? (T) Integer.valueOf(n.intValue()) : mismatch(path, defaultValue, current);
         }
+        if (defaultValue instanceof Double) {
+            return current instanceof Number n ? (T) Double.valueOf(n.doubleValue()) : mismatch(path, defaultValue, current);
+        }
+        if (defaultValue instanceof Boolean) {
+            return current instanceof Boolean ? (T) current : mismatch(path, defaultValue, current);
+        }
+        if (defaultValue instanceof String) {
+            return current instanceof String ? (T) current : mismatch(path, defaultValue, current);
+        }
+        // List / Object / null defaults: return the raw value; the caller checks its type.
+        return (T) current;
+    }
+
+    private static <T> T mismatch(String path, T defaultValue, Object current) {
+        MKTEssentials.LOGGER.warn("Config value '{}' has the wrong type ({}); using default '{}'.",
+                path, current.getClass().getSimpleName(), defaultValue);
+        return defaultValue;
     }
 
     static Path getLangDir() {

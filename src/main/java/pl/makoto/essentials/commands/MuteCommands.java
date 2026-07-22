@@ -34,6 +34,11 @@ public class MuteCommands {
                 .then(Commands.argument("player", EntityArgument.player())
                         .executes(context -> unmute(context.getSource(), EntityArgument.getPlayer(context, "player")))));
 
+        // /mutelist — currently muted online players
+        dispatcher.register(Commands.literal("mutelist")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.mutelist", 2))
+                .executes(context -> mutelist(context.getSource())));
+
         // /tempmute <player> <duration> [reason] — duration is required
         dispatcher.register(Commands.literal("tempmute")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.mute", 2))
@@ -144,6 +149,30 @@ public class MuteCommands {
 
         source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("moderation.unmuted", "player", target.getScoreboardName())), true);
         target.sendSystemMessage(MessageUtils.prefixed("&aYou have been unmuted."));
+        return 1;
+    }
+
+    private static int mutelist(CommandSourceStack source) {
+        long now = System.currentTimeMillis();
+        java.util.List<ServerPlayer> muted = new java.util.ArrayList<>();
+        for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
+            long expiration = DataManager.getPlayerData(player.getUUID()).getMuteExpiration();
+            if (expiration == -1 || expiration > now) {
+                muted.add(player);
+            }
+        }
+
+        if (muted.isEmpty()) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&7No online players are muted."), false);
+            return 1;
+        }
+
+        source.sendSuccess(() -> MessageUtils.prefixed("&cMuted online players (&f" + muted.size() + "&c):"), false);
+        for (ServerPlayer player : muted) {
+            long expiration = DataManager.getPlayerData(player.getUUID()).getMuteExpiration();
+            String duration = expiration == -1 ? "&4permanent" : "&e" + DurationParser.format(expiration - now);
+            source.sendSuccess(() -> MessageUtils.format("&8- &f" + player.getScoreboardName() + " &7(" + duration + "&7)"), false);
+        }
         return 1;
     }
 

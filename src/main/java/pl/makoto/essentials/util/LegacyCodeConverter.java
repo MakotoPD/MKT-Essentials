@@ -71,6 +71,59 @@ public class LegacyCodeConverter {
         return result;
     }
 
+    /** Reverse of the color/decoration maps: MiniMessage tag name → legacy code character. */
+    private static final Map<String, Character> REVERSE_MAP = buildReverseMap();
+
+    private static Map<String, Character> buildReverseMap() {
+        Map<String, Character> map = new java.util.HashMap<>();
+        COLOR_MAP.forEach((code, tag) -> map.put(tag.substring(1, tag.length() - 1), code));
+        DECORATION_MAP.forEach((code, tag) -> map.put(tag.substring(1, tag.length() - 1), code));
+        map.put("reset", 'r');
+        return Map.copyOf(map);
+    }
+
+    // <tag>, </tag>, <color:name> or <color:#RRGGBB>
+    private static final Pattern MINI_TAG = Pattern.compile("(?i)<(/?)([a-z_]+)(?::#?([0-9a-f]{6}|[a-z_]+))?>");
+
+    /**
+     * Converts MiniMessage color/decoration tags back into legacy {@code &} codes so a nickname
+     * stored as MiniMessage renders correctly through MKT's legacy ({@code &}→{@code §}) display
+     * pipeline and TAB integration. Unrecognized tags are left untouched; recognized closing tags
+     * are dropped. Idempotent for strings that already contain only legacy codes.
+     */
+    public static String fromMiniMessage(String input) {
+        if (input == null || input.isEmpty()) return input == null ? "" : input;
+        if (input.indexOf('<') == -1) return input; // fast path: no tags
+
+        Matcher matcher = MINI_TAG.matcher(input);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            boolean closing = !matcher.group(1).isEmpty();
+            String name = matcher.group(2).toLowerCase();
+            String arg = matcher.group(3);
+            String replacement;
+
+            if (closing) {
+                replacement = (name.equals("color") || REVERSE_MAP.containsKey(name)) ? "" : matcher.group();
+            } else if (name.equals("color") && arg != null) {
+                if (arg.matches("(?i)[0-9a-f]{6}")) {
+                    replacement = "&#" + arg.toUpperCase();
+                } else {
+                    Character code = REVERSE_MAP.get(arg.toLowerCase());
+                    replacement = code != null ? "&" + code : matcher.group();
+                }
+            } else if (REVERSE_MAP.containsKey(name)) {
+                replacement = "&" + REVERSE_MAP.get(name);
+            } else {
+                replacement = matcher.group(); // unknown tag — keep literal
+            }
+
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
     private static String convertHexCodes(String input) {
         Matcher matcher = HEX_PATTERN.matcher(input);
         StringBuilder sb = new StringBuilder();

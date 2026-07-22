@@ -1,5 +1,101 @@
 # Changelog
 
+## [1.0.0]
+
+A large chat, cosmetics and integration release. MKT Essentials is now fully self-sufficient: the tab list, nametags, MOTD and placeholders all work with no companion mods, while optional hooks light up when other mods are present. Chat gains rich formatting, interactive elements and a Discord bridge.
+
+### Chat & Formatting
+
+- **Nicknames (`/nick`)** — set a display nickname that now shows **everywhere**: in chat, in the tab list, and above the player's head (the skin is preserved). Staff with `mktessentials.nick.see` see the real name on chat hover. Config: `chat.yml → nickname`.
+
+- **Markdown-style formatting** — write `*italic*`, `**bold**`, `__underline__`, `~~strikethrough~~` and `??matrix??` (obfuscated) directly in chat. Works in chat and on anvil/book/sign text. Config: `chat.yml → markdown`.
+
+- **Inline objects** — `[item]` inserts the item you're holding, with its full tooltip on hover; `<head>` inserts your player head. Config: `chat.yml → objects`.
+
+- **Interactive replacements** — URLs become clickable links, `:emoji:` shortcodes expand, and `||spoiler||` renders as hover-to-reveal blocks. Config: `chat.yml → replacement`.
+
+- **Mentions** — type `@player` to highlight and ping them (with a sound). Recipients can opt out with `/mentions`. Config: `chat.yml → mention`.
+
+- **Per-player chat colour (`/chatcolor`)** — pick a personal base colour for your messages. Config: `chat.yml → chatcolor`.
+
+- **Chat settings GUI (`/chatsetting`)** — a clickable menu to toggle your personal chat options (mentions, etc.), plus an ignore-list menu.
+
+- **Local / per-world chat** — messages reach only nearby players (configurable radius) or the current world, with a global prefix to broadcast server-wide. Config: `chat.yml → chat-local`.
+
+- **Question highlighting** — messages ending in a question are visually emphasised. Config: `chat.yml → questionanswer`.
+
+- **Anonymous chat (`/anon`)** and **stream announcements (`/stream`)** — send a message without your name attached, or announce a stream with a clickable link. Config: `chat.yml → anon`, `stream`.
+
+- **Symbols (`/symbol`)** — insert glyphs/special characters into chat.
+
+- **Coloured anvil, book and sign text** — legacy `&` codes, MiniMessage and markdown now apply to renamed items in an anvil, text written in books, and text on signs. Config: `chat.yml → objects` toggles `anvil-color`, `book-color`, `sign-color`.
+
+### Cosmetics & Display
+
+- **Native tab list** — configurable header/footer with placeholders and frame animations, plus an optional latency/ping display. Config: `chat.yml → tablist`.
+
+- **Native above-head nametags** — rank prefix/suffix rendered above players via scoreboard teams (nickname-aware). Config: `chat.yml → nametag`.
+
+- **Below-name scoreboard** — show a number or health value beneath player nametags in the world. Config: `chat.yml → belowname`.
+
+- **Sidebar scoreboard** and **boss bar** — a configurable side panel and a top boss bar, both with placeholders and animation support. Config: `chat.yml → sidebar`, `bossbar`.
+
+- **Server brand (F3)** — customise the server name shown on the F3 debug screen, with optional rotation between multiple texts. Config: `chat.yml → brand`.
+
+- **Welcome greeting with skin face** — a personalised join greeting (first-join vs returning) that can render the player's actual skin face as pixel art in chat. Uses the player's name so it works in offline mode. Config: `chat.yml → greeting`.
+
+- **MOTD & favicon override** — set the server-list description and icon directly in the mod, with a separate maintenance MOTD. Config: `chat.yml → motd`.
+
+### New Commands & Features
+
+- **Mail (`/mail`)** — send and read offline mail; unread mail is announced on join.
+
+- **Polls (`/poll`)** — create and vote in server polls.
+
+- **Roleplay (`/me`, `/do`)** — action/narration messages.
+
+- **Maintenance mode (`/maintenance`)** — put the server in maintenance with its own MOTD; non-exempt players are kept out.
+
+- **Right-click player interactions**, **`/online`** (formatted online list), and **social commands** for managing chat relationships.
+
+- **Fun commands** — `/dice`, `/coin` and similar.
+
+- **`/geolocate <player>`** — look up the approximate location of a connected IP (staff tool).
+
+### Integrations
+
+- **Optional mod hooks** (auto-detected, toggles in `integration.yml → mods`):
+  - **TAB** — when installed, the mod's native tab list, nametags and ping display step aside so TAB manages them.
+  - **MiniMOTD** — when installed, the mod's MOTD override steps aside.
+  - **SkinsRestorer** — the greeting face uses the player's SkinsRestorer skin.
+  - **Plasmo Voice** & **Simple Voice Chat** — a player muted in-game is silently muted in voice chat too.
+
+- **2-way Discord chat relay** — bridge a Discord channel with in-game chat. In-game messages (and optional join/leave notices) post to Discord — as plain bot messages or, with a webhook, showing each player's name and avatar — while channel messages appear in-game. Anti-`@everyone` protection and colour-code sanitisation apply in both directions. The bot status shows the live online player count. Config: `integration.yml → discord.relay`. Requires the KotlinForForge mod and the bot's *Message Content Intent*.
+
+### Moderation
+
+- **Shadowban "phantom" full isolation** — with `moderation.shadowban-method: phantom`, a shadowbanned player joins into an empty world: they see no other players (entities and tab list), no one sees them, they receive no one's chat, no join/leave spam is generated, and — with a voice-chat mod hooked — their microphone is silently dropped. Mobs and items remain visible.
+
+### Improvements
+
+- **Fully self-sufficient** — no companion mod is required. The tab list, nametags and MOTD are native, and MKT placeholders (`%mktessentials:*%`) resolve internally; the Text Placeholder API is used only to expose them to other mods when present.
+
+- **Configuration reorganised by concern** — chat, social and cosmetic settings live in `chat.yml`; external mod/service hooks live in `integration.yml`. Existing setups are migrated automatically.
+
+### Bug Fixes
+
+- **`/me` no longer collides with vanilla** — the vanilla `/me` is removed so the mod's roleplay command handles it correctly.
+
+- **`/tp` supports selectors and all forms again** — `@p`/`@e`/`@s`/`@a`, player→player, player→coordinates, and coordinate targets all work, mirroring vanilla `/teleport`.
+
+- **`/mkt reload` no longer crashes on a type mismatch** — a mistyped config value now logs a warning and falls back to the default instead of throwing.
+
+- **The Discord bot starts whenever Discord is enabled**, independent of the auth system, and fails softly (server still starts) with a clear hint when its Kotlin dependency is missing.
+
+### Notes
+
+- Backward compatible: existing configs are migrated, and every new feature ships disabled or with safe defaults.
+
 ## [0.4.0]
 
 ### New Features

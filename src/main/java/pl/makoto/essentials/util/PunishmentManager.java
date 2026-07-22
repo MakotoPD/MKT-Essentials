@@ -61,6 +61,22 @@ public class PunishmentManager {
         return punishments.getOrDefault(uuid.toString(), List.of());
     }
 
+    /** Every player with at least one active warn, mapped to their active warn count. */
+    public static Map<UUID, Integer> getActiveWarnCounts() {
+        Map<UUID, Integer> result = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, List<Entry>> e : punishments.entrySet()) {
+            int count = (int) e.getValue().stream().filter(x -> "warn".equals(x.type) && x.active).count();
+            if (count > 0) {
+                try {
+                    result.put(UUID.fromString(e.getKey()), count);
+                } catch (IllegalArgumentException ignored) {
+                    // skip malformed key
+                }
+            }
+        }
+        return result;
+    }
+
     public static int countActiveWarns(UUID uuid) {
         return (int) getHistory(uuid).stream()
                 .filter(e -> "warn".equals(e.type) && e.active)

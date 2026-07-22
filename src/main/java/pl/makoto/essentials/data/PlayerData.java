@@ -48,6 +48,23 @@ public class PlayerData {
 
     public String getNickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
+
+    private String chatColor;
+    public String getChatColor() { return chatColor; }
+    public void setChatColor(String chatColor) { this.chatColor = chatColor; }
+
+    private java.util.Map<String, Boolean> chatSettings = new java.util.HashMap<>();
+    public boolean getChatSetting(String key, boolean defaultValue) {
+        if (chatSettings == null) chatSettings = new java.util.HashMap<>();
+        return chatSettings.getOrDefault(key, defaultValue);
+    }
+    /** Toggles a chat setting and returns the new value. */
+    public boolean toggleChatSetting(String key, boolean defaultValue) {
+        if (chatSettings == null) chatSettings = new java.util.HashMap<>();
+        boolean next = !getChatSetting(key, defaultValue);
+        chatSettings.put(key, next);
+        return next;
+    }
     
     public boolean isRecording() { return recording; }
     public void setRecording(boolean recording) { this.recording = recording; }
@@ -106,6 +123,11 @@ public class PlayerData {
         return ignored().contains(other.toString());
     }
 
+    /** UUID strings of players this player is ignoring (live view). */
+    public java.util.Set<String> getIgnoredPlayerIds() {
+        return ignored();
+    }
+
     /** @return true if the player is now ignored, false if un-ignored */
     public boolean toggleIgnore(UUID other) {
         String key = other.toString();
@@ -114,6 +136,21 @@ public class PlayerData {
             return true;
         }
         return false;
+    }
+
+    private java.util.List<MailMessage> mail = new java.util.ArrayList<>();
+
+    public java.util.List<MailMessage> getMail() {
+        if (mail == null) mail = new java.util.ArrayList<>();
+        return mail;
+    }
+
+    public void addMail(MailMessage message) {
+        getMail().add(message);
+    }
+
+    public void clearMail() {
+        getMail().clear();
     }
 
     public long getFirstJoinAt() { return firstJoinAt; }
@@ -140,6 +177,21 @@ public class PlayerData {
         long total = playTimeMillis;
         if (sessionStartMs > 0) total += Math.max(0, System.currentTimeMillis() - sessionStartMs);
         return total;
+    }
+
+    /** A single offline mail message. Plain fields + no-arg ctor for Gson (matches SavedLocation). */
+    public static class MailMessage {
+        public String from;
+        public String message;
+        public long time;
+
+        private MailMessage() {} // Gson
+
+        public MailMessage(String from, String message, long time) {
+            this.from = from;
+            this.message = message;
+            this.time = time;
+        }
     }
 
     public static class SavedLocation {

@@ -224,6 +224,7 @@ public class MKTCommand {
         try {
             boolean success = ConfigManager.reload();
             if (success) {
+                pl.makoto.essentials.util.FaviconManager.reload();
                 source.sendSuccess(() -> MessageUtils.prefixed(I18n.get("general.reload-success")), true);
             } else {
                 source.sendFailure(MessageUtils.prefixed(I18n.get("general.reload-failed")));

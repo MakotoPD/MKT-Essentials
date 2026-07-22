@@ -35,6 +35,10 @@ repositories {
     flatDir {
         dirs 'libs'
     }
+    // Simple Voice Chat API (mute-sync integration)
+    maven { url = "https://maven.maxhenkel.de/repository/public" }
+    // Plasmo Voice API (mute-sync integration)
+    maven { url = "https://repo.plasmoverse.com/releases" }
 }
 
 base {
@@ -127,6 +131,12 @@ configurations {
 dependencies {
     compileOnly 'net.luckperms:api:5.4'
     compileOnly files('libs/placeholder_api-2.4.2+1.21.1-neoforge-local.jar')
+
+    // Optional voice-chat mute-sync hooks. compileOnly: these classes are only ever loaded when the
+    // matching mod is installed at runtime (Simple Voice Chat auto-scans our @ForgeVoicechatPlugin;
+    // the Plasmo addon is registered only behind an isLoaded guard), so absence is a safe no-op.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+    compileOnly 'su.plo.voice.api:server:2.1.13'
     implementation 'org.yaml:snakeyaml:2.2'
     jarJar(group: 'org.yaml', name: 'snakeyaml', version: '[2.0,3.0)') {
         version { prefer '2.2' }
@@ -148,8 +158,12 @@ dependencies {
     // Wersje zgodne z tym, co JDA 5.2.1 rozwiązuje (runtimeClasspath).
     jarJar(group: 'com.squareup.okhttp3', name: 'okhttp', version: '[4.12.0,5.0)') { version { prefer '4.12.0' } }
     jarJar(group: 'com.squareup.okio', name: 'okio-jvm', version: '[3.6.0,4.0)') { version { prefer '3.6.0' } }
-    // UWAGA: NIE pakujemy kotlin-stdlib — koliduje z dostawcą Kotlina w modpacku
-    // (np. Kotlin for Forge). okio/okhttp użyją Kotlina dostarczonego przez inny mod.
+    // okhttp/okio are Kotlin, so kotlin-stdlib must be on the runtime classpath for the Discord bot.
+    // We deliberately DON'T bundle it: KotlinForForge (the standard Kotlin provider) also jarJars
+    // kotlin-stdlib, and two copies make NeoForge refuse to load. So Discord requires KotlinForForge;
+    // without it the bot thread fails softly (server still starts) with a clear hint in the log.
+    // ponytail: hard dep on KFF for Discord. Only worth relocating okhttp+okio+kotlin via Shadow if
+    // someone actually needs Discord on a pack that can't have KFF.
     jarJar(group: 'com.neovisionaries', name: 'nv-websocket-client', version: '[2.14,3.0)') { version { prefer '2.14' } }
     jarJar(group: 'net.sf.trove4j', name: 'core', version: '[3.1.0,4.0)') { version { prefer '3.1.0' } }
     jarJar(group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '[2.17.2,3.0)') { version { prefer '2.17.2' } }

@@ -19,6 +19,11 @@ import java.util.UUID;
 public class BanCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // /banlist — list all active bans
+        dispatcher.register(Commands.literal("banlist")
+                .requires(source -> Permissions.hasPermission(source, "mktessentials.moderation.banlist", 2))
+                .executes(context -> banlist(context.getSource())));
+
         // /ban <player> [reason]
         dispatcher.register(Commands.literal("ban")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.moderation.ban", 3))
@@ -57,6 +62,27 @@ public class BanCommands {
                         .executes(context -> unban(
                                 context.getSource(),
                                 StringArgumentType.getString(context, "player")))));
+    }
+
+    private static int banlist(CommandSourceStack source) {
+        var bans = BanManager.getActiveBans();
+        if (bans.isEmpty()) {
+            source.sendSuccess(() -> MessageUtils.prefixed("&7There are no active bans."), false);
+            return 1;
+        }
+
+        source.sendSuccess(() -> MessageUtils.prefixed("&cActive bans (&f" + bans.size() + "&c):"), false);
+        for (var entry : bans.values()) {
+            String name = entry.getPlayerName() != null ? entry.getPlayerName() : "Unknown";
+            String duration = entry.isPermanent()
+                    ? "&4permanent"
+                    : "&e" + DurationParser.format(entry.getExpiresAt() - System.currentTimeMillis());
+            String reason = entry.getReason() != null ? entry.getReason() : "-";
+            source.sendSuccess(() -> MessageUtils.format(
+                    "&8- &f" + name + " &7(&6" + entry.getIssuer() + "&7) " + duration
+                            + " &8| &7" + reason), false);
+        }
+        return 1;
     }
 
     private static int ban(CommandSourceStack source, String playerName, String reason) {
