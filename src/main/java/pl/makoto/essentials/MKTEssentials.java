@@ -92,6 +92,9 @@ public class MKTEssentials {
         if (Settings.isCommandEnabled("stations")) StationCommands.register(dispatcher);
         if (Settings.isCommandEnabled("ptime")) PlayerTimeWeatherCommands.register(dispatcher);
         if (Settings.isCommandEnabled("helpop")) ReportCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("queue")) QueueCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("itemstore")) ItemStoreCommands.register(dispatcher);
+        if (Settings.isCommandEnabled("scheduler")) SchedulerCommands.register(dispatcher);
         if (Settings.isCommandEnabled("tps")) PerformanceCommands.register(dispatcher);
         // Text commands go last so real commands always win alias conflicts
         TextCommands.register(dispatcher);
@@ -108,6 +111,8 @@ public class MKTEssentials {
         BanManager.init(server);
         pl.makoto.essentials.util.IpBanManager.init(server);
         pl.makoto.essentials.util.PunishmentManager.init(server);
+        pl.makoto.essentials.util.CommandQueueManager.init(server);
+        pl.makoto.essentials.util.ItemStorageManager.init(server);
         ShadowBanManager.init(server);
         BackupManager.init(server);
         AuthManager.init(server);

@@ -96,6 +96,10 @@ public class MKTCommand {
             source.sendSuccess(() -> MessageUtils.format("   &7/speed fly|walk <0-10>, /clearinv"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/tpall, /invsee <player>, /enderchest <player>"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/invbackup save|list|restore|delete"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/reports [page] &8(staff report log)"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/cmdqueue add|list|info|cancel &8(command queue)"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/itemstore create|edit|give|giverandom &8(saved items)"), false);
+            source.sendSuccess(() -> MessageUtils.format("   &7/scheduler list|info|run|reload &8(automated commands)"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/day, /noon, /night, /midnight, /sun, /rain, /storm"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/gm, /gmc, /gms, /gma, /gmsp, /tp, /tphere, /tppos"), false);
             source.sendSuccess(() -> MessageUtils.format("   &7/i <item> [amount], /more, /skull, /sudo"), false);
@@ -163,6 +167,15 @@ public class MKTCommand {
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.exp"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.lag"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.helpop &8(receive /helpop and /report)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.queue.view &8(view the command queue)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.queue.add &8(queue commands — equals console access)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.queue.manage &8(cancel, retry, remove)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.itemstore.view &8(view saved item categories)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.itemstore.edit &8(create, edit, weights)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.itemstore.give &8(hand items out)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.scheduler.view &8(view schedulers)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.scheduler.manage &8(run, enable, reload)"), false);
+        source.sendSuccess(() -> MessageUtils.format(" &8   (grant &f...queue.* / ...itemstore.* / ...scheduler.* &8for all of a group)"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.msgbypass"), false);
         source.sendSuccess(() -> MessageUtils.format(" &e- &fmktessentials.admin.tptoggle.bypass"), false);
 

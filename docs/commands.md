@@ -77,6 +77,15 @@ list is printed in-game with `/mkt permissions`; the table below is a convenient
 | `/sudo <player> <command>` | Force a player to run a command | `mktessentials.admin.sudo` |
 | `/maintenance` | Toggle maintenance mode | `mktessentials.admin.maintenance` |
 | `/invbackup save\|list\|restore\|delete <player>` | Inventory backups | `mktessentials.admin.backup` |
+| `/cmdqueue add\|addnowait <player> [key <k>] [in <time>] <command>` | Queue a console command for a player | `mktessentials.admin.queue.add` |
+| `/cmdqueue list [status] [page]`, `/cmdqueue player <name>`, `/cmdqueue info <id>` | Inspect the queue | `mktessentials.admin.queue.view` |
+| `/cmdqueue cancel\|retry\|remove <id>`, `/cmdqueue clear` | Manage queued commands | `mktessentials.admin.queue.manage` |
+| `/itemstore create\|delete\|rename\|edit <category>` | Saved item categories (GUI editor keeps full NBT) | `mktessentials.admin.itemstore.edit` |
+| `/itemstore list <category> [page]`, `/itemstore categories` | Browse saved items and their draw odds | `mktessentials.admin.itemstore.view` |
+| `/itemstore weight\|remove\|move`, `/itemstore announce <category> <bool>` | Draw weights, item moves, public reward messages | `mktessentials.admin.itemstore.edit` |
+| `/itemstore give <player> <category> <index> [amount]`, `/itemstore giverandom <player> <category> [count]` | Hand out saved items (weighted random for crates) | `mktessentials.admin.itemstore.give` |
+| `/scheduler list`, `/scheduler info <name>`, `/scheduler history <name>` | Inspect automated command schedulers | `mktessentials.admin.scheduler.view` |
+| `/scheduler run\|enable\|disable <name>`, `/scheduler reload` | Control schedulers (defined in `scheduler.yml`) | `mktessentials.admin.scheduler.manage` |
 
 ## Moderation
 
@@ -106,7 +115,7 @@ list is printed in-game with `/mkt permissions`; the table below is a convenient
 | `/tps`, `/lag` | Server performance | `mktessentials.command.tps` / `mktessentials.admin.lag` |
 | `/day`, `/noon`, `/night`, `/midnight`, `/sun`, `/rain`, `/storm` | World time & weather | `mktessentials.admin.time` / `.weather` |
 | `/ptime <preset\|ticks\|reset>`, `/pweather clear\|rain\|reset` | Personal client-side time/weather | `mktessentials.command.ptime` / `.pweather` |
-| `/broadcast <message>`, `/helpop <msg>`, `/report <player> <reason>` | Staff messaging | `mktessentials.admin.broadcast` / `mktessentials.command.helpop` / `.report` |
+| `/broadcast <message>`, `/helpop <msg>`, `/report <player> <reason>`, `/reports [page]` | Staff messaging (`/reports` = paginated log of helpops & reports) | `mktessentials.admin.broadcast` / `mktessentials.command.helpop` / `.report` |
 | `/rules`, `/www`, `/vote`, … | Config-defined text commands | `mktessentials.command.text.<name>` |
 | `/mkt help\|reload\|permissions` | Mod management | `mktessentials.admin.reload` / `.permissions` |
 

@@ -693,6 +693,9 @@ final class DefaultTemplates {
               enderchest: true # /enderchest <player>
               backup: true    # /invbackup save|list|restore|delete
               clearitems: true # /clearitems [radius]
+              queue: true     # /cmdqueue (queued console commands for online&offline players)
+              itemstore: true # /itemstore (saved item categories, crates, rewards)
+              scheduler: true # /scheduler (automated commands, see scheduler.yml)
 
             # ============================================
             #  Moderation Commands
@@ -1128,5 +1131,77 @@ final class DefaultTemplates {
               clearitems-success: "&aUsunieto &6{count} &aprzedmiotow z ziemi."
               clearitems-radius: "&aUsunieto &6{count} &aprzedmiotow w zasiegu &6{radius} &ablokow."
               clearitems-none: "&7Brak przedmiotow do usuniecia."
+            """;
+
+    static final String SCHEDULER_YML = """
+            # ============================================
+            #  MKT Essentials - Scheduler
+            # ============================================
+            # Named schedulers that run console commands automatically.
+            # Edit this file and run /mkt reload — no restart needed.
+            #
+            # Schedule (pick one):
+            #   every: 5m          how often to run (s/m/h/d, e.g. 30s, 5m, 2h, 1d)
+            #   every: 5m-10m      random interval between the two values
+            #   at: ["12:00"]      fire at these times of day instead of an interval
+            #   once: true         run one time after the server starts
+            #   delay: 30s         wait this long after startup before the first run
+            #   days: [monday]     limit an "at" schedule to these weekdays
+            #
+            # mode: how the command list is used on each run
+            #   all          run every command, in order
+            #   random       one random command, never the same one twice in a row
+            #   random:2     that many random commands
+            #   weighted     one command, chosen by its "weight"
+            #   sequential   the next command in the list, advancing every run
+            #   shuffle      random, but every command runs once before any repeats
+            #
+            # spread: 3s     stagger the commands of one run by up to this much
+            #
+            # conditions: all must hold, otherwise "when-invalid" decides what happens
+            #   min-players / max-players   player count bounds
+            #   player: Steve               that player must be online
+            #   dimension: minecraft:the_nether   someone must be in that dimension
+            #   uptime: 5m                  server must have been up this long
+            #   between: "18:00-23:00"      real time window (may cross midnight)
+            #   game-time: "13000-23000"    in-game overworld tick window (night here)
+            #   when-invalid: skip | wait   skip this run, or hold it until conditions hold
+
+            schedulers:
+
+              # Rotating hints, one random line every 5-10 minutes, only with players online.
+              tips:
+                enabled: true
+                every: 5m-10m
+                mode: shuffle
+                conditions:
+                  min-players: 1
+                  when-invalid: skip
+                commands:
+                  - "broadcast &7Type &f/help &7to see every command."
+                  - "broadcast &7Set your home with &f/sethome&7."
+                  - "broadcast &7Join our Discord with &f/discord&7."
+
+              # Nightly restart warning, weekdays only.
+              restart-warning:
+                enabled: false
+                at: ["03:55", "03:58"]
+                days: [monday, tuesday, wednesday, thursday, friday]
+                mode: all
+                commands:
+                  - "broadcast &c&lServer restarts in a few minutes!"
+
+              # A weighted example: the rare line shows up roughly a tenth of the time.
+              weighted-example:
+                enabled: false
+                every: 30m
+                mode: weighted
+                conditions:
+                  min-players: 3
+                commands:
+                  - command: "broadcast &7Common message"
+                    weight: 9
+                  - command: "broadcast &6Rare message!"
+                    weight: 1
             """;
 }

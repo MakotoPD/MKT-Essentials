@@ -26,6 +26,7 @@ public final class ConfigManager {
         writeDefaultIfMissing(configDir.resolve("chat.yml"), DefaultTemplates.CHAT_YML);
         writeDefaultIfMissing(configDir.resolve("commands.yml"), DefaultTemplates.COMMANDS_YML);
         writeDefaultIfMissing(configDir.resolve("messages.yml"), DefaultTemplates.MESSAGES_YML);
+        writeDefaultIfMissing(configDir.resolve("scheduler.yml"), DefaultTemplates.SCHEDULER_YML);
         // One-time migration: move existing Discord/web-sync config out of settings.yml into
         // integration.yml before the default is written, so upgraders keep their bot token.
         migrateToIntegration();
@@ -57,6 +58,7 @@ public final class ConfigManager {
         Map<String, Object> integration = parseYaml(configDir.resolve("integration.yml"));
         Map<String, Object> commands = parseYaml(configDir.resolve("commands.yml"));
         Map<String, Object> messages = parseYaml(configDir.resolve("messages.yml"));
+        Map<String, Object> scheduler = parseYaml(configDir.resolve("scheduler.yml"));
 
         Settings.loadSettings(settings != null ? settings : Map.of());
         Settings.loadChat(chat != null ? chat : Map.of());
@@ -64,6 +66,7 @@ public final class ConfigManager {
         Settings.loadMessages(messages != null ? messages : Map.of());
         Settings.loadAuth(settings != null ? settings : Map.of());
         Settings.loadIntegration(integration != null ? integration : Map.of());
+        pl.makoto.essentials.util.SchedulerManager.load(scheduler != null ? scheduler : Map.of());
 
         I18n.init(Settings.getLanguage());
     }

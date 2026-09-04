@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0]
+
+### Automation
+
+- **Command scheduler (`/scheduler`)** — named schedulers in `config/mktessentials/scheduler.yml`, each with its own command list, selection mode and schedule. Intervals (`every: 5m`, or `5m-10m` for a random one), fixed times of day with weekday filters, a one-shot run after startup, and a `spread` that staggers the commands of a single run. Selection modes: `all`, `random` (never the same line twice in a row), `random:N`, `weighted`, `sequential` and `shuffle` (every command runs once before any repeats). Conditions gate a run on player count, a named player being online, someone being in a dimension, server uptime, a real-time window or an in-game time window — an unmet condition either skips the run or holds it until it is met. `/scheduler list|info|history|run|enable|disable|reload` inspect and drive them, and `/mkt reload` picks up file edits without a restart. Permissions: `mktessentials.admin.scheduler.view` / `.manage` (or `mktessentials.admin.scheduler.*`). Config: `commands.yml -> admin.scheduler`.
+
+### Saved Items
+
+- **Item storage (`/itemstore`)** — save exact copies of custom items into named categories and hand them out later. `/itemstore edit <category>` opens a chest: whatever is in it when you close it becomes the category, so adding, removing, replacing and reordering are all one GUI. Every component survives the round-trip — display name, lore, enchantments, attributes, custom model data and mod-added data. Per-item draw weights power crates and random rewards (`/itemstore giverandom`), items that do not fit drop at the player's feet, and `/itemstore announce` broadcasts the reward with the item's own hover tooltip. Combine with `/cmdqueue` to pay out to offline players. Permissions: `mktessentials.admin.itemstore.view` / `.edit` / `.give` (or `mktessentials.admin.itemstore.*`). Config: `commands.yml -> admin.itemstore`.
+
+### Command Queue
+
+- **Command queue (`/cmdqueue`)** — queue console commands to run for a player reliably: as soon as they are online, after a delay, or both. The queue survives a restart, so a purchase made while the server is down is still paid out on the next boot. Statuses (`pending`, `completed`, `failed`, `cancelled`), full history with who queued what and when, and `cancel` / `retry` / `remove` / `clear` for administrators. An optional `key` makes an entry idempotent so a webstore retry cannot grant the same reward twice. Permissions: `mktessentials.admin.queue.view` / `.add` / `.manage` (or `mktessentials.admin.queue.*`) (all level 4 — queueing a command equals console access). Config: `commands.yml -> admin.queue`.
+
+- **Report log (`/reports`)** — `/helpop` and `/report` are now persisted to `<world>/mktessentials/reports.log` instead of only reaching the console, and staff can page through them in game with clickable navigation. Permission: `mktessentials.admin.helpop`.
+
 ## [1.0.0]
 
 A large chat, cosmetics and integration release. MKT Essentials is now fully self-sufficient: the tab list, nametags, MOTD and placeholders all work with no companion mods, while optional hooks light up when other mods are present. Chat gains rich formatting, interactive elements and a Discord bridge.
