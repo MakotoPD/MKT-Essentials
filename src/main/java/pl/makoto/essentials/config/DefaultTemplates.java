@@ -725,6 +725,7 @@ final class DefaultTemplates {
               ptime: true     # /ptime, /pweather (per-player client time/weather)
               helpop: true    # /helpop, /report
               tps: true       # /tps, /lag
+              afk: true       # /afk
             """;
 
     static final String MESSAGES_YML = """

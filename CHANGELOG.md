@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1]
+
+## Config
+
+- **Afk in config** - Added `afk` commant to the config file, allowing server administrators to configure AFK is enabled or disabled on server. This provides flexibility for server owners to manage player activity and ensure a smooth gaming experience. 
+
 ## [1.1.0]
 
 ### Automation

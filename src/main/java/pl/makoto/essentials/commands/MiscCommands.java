@@ -51,9 +51,11 @@ public class MiscCommands {
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.command.streaming", 0))
                 .executes(context -> streaming(context.getSource())));
 
-        dispatcher.register(Commands.literal("afk")
-                .requires(source -> Permissions.hasPermission(source, "mktessentials.command.afk", 0))
-                .executes(context -> afk(context.getSource())));
+        if (Settings.isCommandEnabled("afk")) {
+            dispatcher.register(Commands.literal("afk")
+                    .requires(source -> Permissions.hasPermission(source, "mktessentials.command.afk", 0))
+                    .executes(context -> afk(context.getSource())));
+        }
 
         dispatcher.register(Commands.literal("clearchat")
                 .requires(source -> Permissions.hasPermission(source, "mktessentials.admin.clearchat", 2))
